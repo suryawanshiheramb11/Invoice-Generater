@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Card";
 import { Modal } from "@/components/ui/Modal";
 import { useToast } from "@/components/ui/Toast";
+import { friendlyErrorMessage } from "@/lib/errors";
 import { formatMoney } from "@/lib/money";
 import { formatDate } from "@/lib/dates";
 import { calculateInvoiceTotals } from "@/lib/calculations";
@@ -62,7 +63,7 @@ export function InvoicesTable({ invoices, onChange }: { invoices: Invoice[]; onC
       show("Invoice duplicated.", "success");
       onChange();
     } catch (err) {
-      show(err instanceof Error ? err.message : "Failed to duplicate invoice.", "error");
+      show(friendlyErrorMessage(err), "error");
     } finally {
       setBusyId(null);
     }
@@ -77,7 +78,7 @@ export function InvoicesTable({ invoices, onChange }: { invoices: Invoice[]; onC
       setConfirmDelete(null);
       onChange();
     } catch (err) {
-      show(err instanceof Error ? err.message : "Failed to delete invoice.", "error");
+      show(friendlyErrorMessage(err), "error");
     } finally {
       setBusyId(null);
     }

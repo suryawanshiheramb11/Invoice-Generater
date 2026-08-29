@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/Button";
 import { Field, Input } from "@/components/ui/Field";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { useToast } from "@/components/ui/Toast";
+import { friendlyErrorMessage } from "@/lib/errors";
 
 export default function ForgotPasswordPage() {
   const { show } = useToast();
@@ -27,7 +28,7 @@ export default function ForgotPasswordPage() {
       if (error) throw error;
       setSent(true);
     } catch (err) {
-      show(err instanceof Error ? err.message : "Something went wrong.", "error");
+      show(friendlyErrorMessage(err), "error");
     } finally {
       setLoading(false);
     }

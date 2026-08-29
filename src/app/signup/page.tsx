@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/Button";
 import { Field, Input } from "@/components/ui/Field";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { useToast } from "@/components/ui/Toast";
+import { friendlyErrorMessage } from "@/lib/errors";
+import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
 
 export default function SignupPage() {
   const { show } = useToast();
@@ -34,7 +36,7 @@ export default function SignupPage() {
       if (error) throw error;
       setDone(true);
     } catch (err) {
-      show(err instanceof Error ? err.message : "Sign up failed.", "error");
+      show(friendlyErrorMessage(err), "error");
     } finally {
       setLoading(false);
     }
@@ -58,6 +60,14 @@ export default function SignupPage() {
           <CardTitle>Create your account</CardTitle>
         </CardHeader>
         <CardContent>
+          <GoogleSignInButton />
+
+          <div className="my-4 flex items-center gap-3 text-xs text-muted">
+            <div className="h-px flex-1 bg-border" />
+            or
+            <div className="h-px flex-1 bg-border" />
+          </div>
+
           <form onSubmit={handleSubmit} className="space-y-4">
             <Field label="Email" required>
               <Input type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />

@@ -11,6 +11,7 @@ import { StatsCards } from "@/components/dashboard/StatsCards";
 import { InvoicesTable } from "@/components/dashboard/InvoicesTable";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
+import { friendlyErrorMessage } from "@/lib/errors";
 
 export default function DashboardPage() {
   const { user, loading: userLoading } = useUser();
@@ -21,7 +22,7 @@ export default function DashboardPage() {
   const load = useCallback(() => {
     listInvoices()
       .then(setInvoices)
-      .catch((err) => show(err instanceof Error ? err.message : "Failed to load invoices.", "error"));
+      .catch((err) => show(friendlyErrorMessage(err), "error"));
   }, [show]);
 
   useEffect(() => {

@@ -11,6 +11,7 @@ import { BusinessSection } from "@/components/invoice/BusinessSection";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
+import { friendlyErrorMessage } from "@/lib/errors";
 
 const EMPTY_BUSINESS: BusinessInfo = {
   name: "",
@@ -49,7 +50,7 @@ export default function SettingsPage() {
       await saveBusinessProfile(business);
       show("Business profile saved.", "success");
     } catch (err) {
-      show(err instanceof Error ? err.message : "Failed to save profile.", "error");
+      show(friendlyErrorMessage(err), "error");
     } finally {
       setSaving(false);
     }

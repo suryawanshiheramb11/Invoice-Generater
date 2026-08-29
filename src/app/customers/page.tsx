@@ -12,6 +12,7 @@ import { Field, Input, Textarea } from "@/components/ui/Field";
 import { Card } from "@/components/ui/Card";
 import { Modal } from "@/components/ui/Modal";
 import { useToast } from "@/components/ui/Toast";
+import { friendlyErrorMessage } from "@/lib/errors";
 import { emptyAddress } from "@/lib/defaults";
 
 const EMPTY_FORM = {
@@ -38,7 +39,7 @@ export default function CustomersPage() {
   function load() {
     listCustomers()
       .then(setCustomers)
-      .catch((err) => show(err instanceof Error ? err.message : "Failed to load customers.", "error"));
+      .catch((err) => show(friendlyErrorMessage(err), "error"));
   }
 
   useEffect(() => {
@@ -83,7 +84,7 @@ export default function CustomersPage() {
       show("Customer saved.", "success");
       load();
     } catch (err) {
-      show(err instanceof Error ? err.message : "Failed to save customer.", "error");
+      show(friendlyErrorMessage(err), "error");
     } finally {
       setSaving(false);
     }
@@ -97,7 +98,7 @@ export default function CustomersPage() {
       setConfirmDelete(null);
       load();
     } catch (err) {
-      show(err instanceof Error ? err.message : "Failed to delete customer.", "error");
+      show(friendlyErrorMessage(err), "error");
     }
   }
 

@@ -8,6 +8,7 @@ import { Field, Input } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 import { uploadLogo } from "@/services/storage";
 import { useToast } from "@/components/ui/Toast";
+import { friendlyErrorMessage } from "@/lib/errors";
 import { useUser } from "@/hooks/useUser";
 
 interface Props {
@@ -35,7 +36,7 @@ export function BusinessSection({ business, onChange }: Props) {
       onChange({ logoUrl: url });
       show("Logo uploaded.", "success");
     } catch (err) {
-      show(err instanceof Error ? err.message : "Logo upload failed.", "error");
+      show(friendlyErrorMessage(err), "error");
     } finally {
       setUploading(false);
     }

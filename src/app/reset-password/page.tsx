@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/Button";
 import { Field, Input } from "@/components/ui/Field";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { useToast } from "@/components/ui/Toast";
+import { friendlyErrorMessage } from "@/lib/errors";
 
 export default function ResetPasswordPage() {
   const router = useRouter();
@@ -45,7 +46,7 @@ export default function ResetPasswordPage() {
       show("Password updated. You can now log in.", "success");
       router.push("/dashboard");
     } catch (err) {
-      show(err instanceof Error ? err.message : "Failed to reset password.", "error");
+      show(friendlyErrorMessage(err), "error");
     } finally {
       setLoading(false);
     }

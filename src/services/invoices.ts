@@ -45,13 +45,17 @@ export async function saveInvoice(invoice: Invoice): Promise<Invoice> {
 
 async function syncInvoiceItems(invoiceId: string, invoice: Invoice) {
   const supabase = createClient();
-  await supabase.from("invoice_items").delete().eq("invoice_id", invoiceId);
+  const { error: deleteError } = await supabase.from("invoice_items").delete().eq("invoice_id", invoiceId);
+  if (deleteError) throw new ServiceError(deleteError.message);
   if (invoice.items.length === 0) return;
 
+  // Item ids here are app-local (not UUIDs) and rows are fully replaced on every save,
+  // so `id` is deliberately omitted rather than set to `undefined` — a key present with
+  // an `undefined` value still gets included in the PostgREST `columns` list and causes
+  // a 400 (declared column with no value in the request body).
   const rows = invoice.items.map((item) => {
     const amount = calculateInvoiceTotals({ ...invoice, items: [item] }).total;
     return {
-      id: item.id.length === 36 ? item.id : undefined,
       invoice_id: invoiceId,
       description: item.name ? `${item.name}${item.description ? " — " + item.description : ""}` : item.description,
       quantity: item.quantity,
@@ -62,7 +66,8 @@ async function syncInvoiceItems(invoiceId: string, invoice: Invoice) {
     };
   });
 
-  await supabase.from("invoice_items").insert(rows);
+  const { error: insertError } = await supabase.from("invoice_items").insert(rows);
+  if (insertError) throw new ServiceError(insertError.message);
 }
 
 export async function listInvoices(): Promise<Invoice[]> {

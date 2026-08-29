@@ -22,8 +22,9 @@ import { useDebouncedEffect } from "@/hooks/useDebouncedEffect";
 import { useQrDataUrl } from "@/hooks/useQrDataUrl";
 import { createDemoInvoice, createEmptyInvoice } from "@/lib/defaults";
 import { TEMPLATES } from "@/lib/templates";
-import { saveDraft, loadDraft } from "@/lib/guestStorage";
+import { saveDraft, loadDraft, clearDraft } from "@/lib/guestStorage";
 import { validateInvoice } from "@/lib/validation";
+import { friendlyErrorMessage } from "@/lib/errors";
 import { getNextInvoiceNumber, prepareDuplicateInvoice, saveInvoice } from "@/services/invoices";
 import { getBusinessProfile } from "@/services/profile";
 import { buildUpiUri } from "@/lib/upi";
@@ -42,15 +43,20 @@ export function InvoiceEditor({ invoiceId, initialInvoice }: { invoiceId?: strin
   const [downloading, setDownloading] = useState(false);
   const initializedProfile = useRef(false);
 
-  // Initialize: load an invoice number and (for guests) any local draft.
+  // Initialize a new invoice. Guests resume their local draft (if any); signed-in users
+  // always start fresh here (their existing invoices live in the dashboard) — otherwise a
+  // stale guest draft from before they logged in could reload with an invoice number that's
+  // already saved under their account and collide on save.
   useEffect(() => {
-    if (invoiceId || initialInvoice) return;
+    if (invoiceId || initialInvoice || userLoading) return;
     let cancelled = false;
     (async () => {
-      const draft = loadDraft();
-      if (draft) {
-        if (!cancelled) setInvoice(draft);
-        return;
+      if (!user) {
+        const draft = loadDraft();
+        if (draft) {
+          if (!cancelled) setInvoice(draft);
+          return;
+        }
       }
       const number = await getNextInvoiceNumber().catch(() => `INV-${new Date().getFullYear()}-0001`);
       const fresh = createEmptyInvoice(number);
@@ -61,7 +67,7 @@ export function InvoiceEditor({ invoiceId, initialInvoice }: { invoiceId?: strin
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [invoiceId]);
+  }, [invoiceId, userLoading, user]);
 
   // Pre-fill saved business profile once, for logged-in users starting a new invoice.
   useEffect(() => {
@@ -119,10 +125,11 @@ export function InvoiceEditor({ invoiceId, initialInvoice }: { invoiceId?: strin
       const saved = await saveInvoice(invoice);
       setInvoice(saved);
       setLastSavedAt(new Date());
+      clearDraft();
       if (!silent) show("Invoice saved.", "success");
       if (!invoiceId) router.replace(`/invoice/${saved.id}`);
     } catch (err) {
-      if (!silent) show(err instanceof Error ? err.message : "Failed to save invoice.", "error");
+      if (!silent) show(friendlyErrorMessage(err), "error");
     } finally {
       setSaving(false);
     }
