@@ -30,6 +30,14 @@ import { getBusinessProfile } from "@/services/profile";
 import { buildUpiUri } from "@/lib/upi";
 import { calculateInvoiceTotals } from "@/lib/calculations";
 
+/** Content-only signature, excluding server-set fields that change on every save. */
+function invoiceSignature(invoice: Invoice): string {
+  const rest: Partial<Invoice> = { ...invoice };
+  delete rest.updatedAt;
+  delete rest.createdAt;
+  return JSON.stringify(rest);
+}
+
 export function InvoiceEditor({ invoiceId, initialInvoice }: { invoiceId?: string; initialInvoice?: Invoice }) {
   const { user, loading: userLoading } = useUser();
   const { show } = useToast();
@@ -43,6 +51,10 @@ export function InvoiceEditor({ invoiceId, initialInvoice }: { invoiceId?: strin
   const [downloading, setDownloading] = useState(false);
   const [sharing, setSharing] = useState(false);
   const initializedProfile = useRef(false);
+  // Tracks the content we last persisted (excluding server-set fields like updatedAt,
+  // which change on every save and would otherwise make the object look "edited" again
+  // as soon as setInvoice(saved) runs, re-triggering the autosave effect in a loop).
+  const lastSavedSignature = useRef<string | null>(initialInvoice ? invoiceSignature(initialInvoice) : null);
 
   // Initialize a new invoice. Guests resume their local draft (if any); signed-in users
   // always start fresh here (their existing invoices live in the dashboard) — otherwise a
@@ -99,10 +111,13 @@ export function InvoiceEditor({ invoiceId, initialInvoice }: { invoiceId?: strin
     600
   );
 
-  // Authenticated autosave to the database (only once the invoice is reasonably complete).
+  // Authenticated autosave to the database (only once the invoice is reasonably complete,
+  // and only if the content actually changed since the last save — persist() below writes
+  // back a fresh `updatedAt` from the DB, which must not itself look like a new edit).
   useDebouncedEffect(
     () => {
       if (!invoice || !user) return;
+      if (invoiceSignature(invoice) === lastSavedSignature.current) return;
       if (validateInvoice(invoice).length > 0) return;
       void persist(true);
     },
@@ -124,6 +139,7 @@ export function InvoiceEditor({ invoiceId, initialInvoice }: { invoiceId?: strin
     setSaving(true);
     try {
       const saved = await saveInvoice(invoice);
+      lastSavedSignature.current = invoiceSignature(saved);
       setInvoice(saved);
       setLastSavedAt(new Date());
       clearDraft();

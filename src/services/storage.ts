@@ -26,8 +26,10 @@ export async function uploadLogo(file: File): Promise<string> {
   const extension = file.name.split(".").pop() || "png";
   const path = `${user.id}/logo-${Date.now()}.${extension}`;
 
+  // upsert is intentionally omitted: the path is already unique (Date.now()-based),
+  // so there's never a real conflict to resolve, and Supabase Storage's upsert=true
+  // path fails its own RLS insert check even for brand-new, non-conflicting objects.
   const { error } = await supabase.storage.from("logos").upload(path, file, {
-    upsert: true,
     contentType: file.type,
   });
   if (error) throw new ServiceError(error.message);
