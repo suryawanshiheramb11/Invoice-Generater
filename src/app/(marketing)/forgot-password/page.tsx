@@ -7,7 +7,7 @@ import { Mail } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/Button";
 import { Field, Input } from "@/components/ui/Field";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { Card, CardContent } from "@/components/ui/Card";
 import { useToast } from "@/components/ui/Toast";
 import { friendlyErrorMessage } from "@/lib/errors";
 
@@ -36,32 +36,37 @@ export default function ForgotPasswordPage() {
 
   if (sent) {
     return (
-      <div className="mx-auto max-w-sm px-4 py-16 text-center">
-        <h1 className="text-lg font-semibold">Check your email</h1>
+      <div className="mx-auto max-w-sm px-4 py-16 text-center sm:py-24">
+        <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-accent-soft text-2xl">✉️</span>
+        <h1 className="mt-6 font-display text-2xl font-extrabold text-foreground">Check your email</h1>
         <p className="mt-2 text-sm text-muted">
-          If an account exists for <strong>{email}</strong>, we sent a password reset link.
+          If an account exists for <strong className="text-foreground">{email}</strong>, we sent a password reset
+          link.
         </p>
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-sm px-4 py-16">
-      <Card>
-        <CardHeader>
-          <CardTitle>Reset your password</CardTitle>
-        </CardHeader>
-        <CardContent>
+    <div className="mx-auto max-w-sm px-4 py-16 sm:py-24">
+      <span className="mx-auto flex h-[70px] w-[70px] -rotate-6 items-center justify-center rounded-3xl bg-sun text-2xl">🔑</span>
+      <h1 className="mt-6 text-center font-display text-3xl font-extrabold tracking-tight text-foreground">
+        Reset your password
+      </h1>
+      <p className="mt-2 text-center text-sm text-muted">Pop in your email and we&apos;ll send a link.</p>
+
+      <Card className="mt-8">
+        <CardContent className="p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
-            <Field label="Email" required hint="We'll send you a link to reset your password.">
+            <Field label="Email" required>
               <Input type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
             </Field>
-            <Button type="submit" className="w-full" loading={loading}>
-              <Mail className="h-3.5 w-3.5" /> Send Reset Link
+            <Button type="submit" className="w-full" size="lg" loading={loading}>
+              <Mail className="h-4 w-4" /> Send Reset Link
             </Button>
           </form>
-          <p className="mt-4 text-center text-xs text-muted">
-            <Link href="/login" className="text-accent hover:underline">
+          <p className="mt-5 text-center text-sm font-bold">
+            <Link href="/login" className="text-accent hover:text-accent-hover">
               Back to login
             </Link>
           </p>

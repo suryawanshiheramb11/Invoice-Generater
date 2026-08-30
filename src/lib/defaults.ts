@@ -70,7 +70,7 @@ export function createEmptyInvoice(invoiceNumber: string): Invoice {
     },
 
     customization: {
-      accentColor: "#4f46e5",
+      accentColor: "#00A97C",
       fontFamily: "Inter",
       logoPosition: "left",
       dateFormat: "DD/MM/YYYY",

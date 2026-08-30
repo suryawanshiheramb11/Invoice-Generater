@@ -7,7 +7,7 @@ import { UserPlus } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/Button";
 import { Field, Input } from "@/components/ui/Field";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { Card, CardContent } from "@/components/ui/Card";
 import { useToast } from "@/components/ui/Toast";
 import { friendlyErrorMessage } from "@/lib/errors";
 import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
@@ -44,25 +44,27 @@ export default function SignupPage() {
 
   if (done) {
     return (
-      <div className="mx-auto max-w-sm px-4 py-16 text-center">
-        <h1 className="text-lg font-semibold">Check your email</h1>
+      <div className="mx-auto max-w-sm px-4 py-16 text-center sm:py-24">
+        <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-accent-soft text-2xl">✉️</span>
+        <h1 className="mt-6 font-display text-2xl font-extrabold text-foreground">Check your email</h1>
         <p className="mt-2 text-sm text-muted">
-          We sent a confirmation link to <strong>{email}</strong>. Confirm your email to finish creating your account.
+          We sent a confirmation link to <strong className="text-foreground">{email}</strong>. Confirm your email to
+          finish creating your account.
         </p>
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-sm px-4 py-16">
-      <Card>
-        <CardHeader>
-          <CardTitle>Create your account</CardTitle>
-        </CardHeader>
-        <CardContent>
+    <div className="mx-auto max-w-sm px-4 py-16 sm:py-24">
+      <h1 className="text-center font-display text-3xl font-extrabold tracking-tight text-foreground">Let&apos;s set you up</h1>
+      <p className="mt-2 text-center text-sm text-muted">Free forever for your first invoices.</p>
+
+      <Card className="mt-8">
+        <CardContent className="p-6">
           <GoogleSignInButton />
 
-          <div className="my-4 flex items-center gap-3 text-xs text-muted">
+          <div className="my-5 flex items-center gap-3 text-xs font-semibold text-muted-soft">
             <div className="h-px flex-1 bg-border" />
             or
             <div className="h-px flex-1 bg-border" />
@@ -82,13 +84,13 @@ export default function SignupPage() {
                 onChange={(e) => setPassword(e.target.value)}
               />
             </Field>
-            <Button type="submit" className="w-full" loading={loading}>
-              <UserPlus className="h-3.5 w-3.5" /> Sign Up
+            <Button type="submit" className="w-full" size="lg" loading={loading}>
+              <UserPlus className="h-4 w-4" /> Create account
             </Button>
           </form>
-          <p className="mt-4 text-center text-xs text-muted">
+          <p className="mt-5 text-center text-sm font-medium text-muted">
             Already have an account?{" "}
-            <Link href="/login" className="text-accent hover:underline">
+            <Link href="/login" className="font-bold text-accent hover:text-accent-hover">
               Log in
             </Link>
           </p>

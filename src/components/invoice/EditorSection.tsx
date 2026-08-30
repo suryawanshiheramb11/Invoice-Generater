@@ -16,7 +16,7 @@ export function EditorSection({ title, subtitle, defaultOpen = true, children }:
   const [open, setOpen] = useState(defaultOpen);
 
   return (
-    <section className="rounded-xl border border-border bg-surface">
+    <section className="overflow-hidden rounded-[22px] bg-surface shadow-[0_4px_14px_rgba(20,60,45,0.06)]">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
@@ -24,7 +24,7 @@ export function EditorSection({ title, subtitle, defaultOpen = true, children }:
         aria-expanded={open}
       >
         <div>
-          <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+          <h2 className="font-display text-sm font-bold text-foreground">{title}</h2>
           {subtitle && <p className="mt-0.5 text-xs text-muted">{subtitle}</p>}
         </div>
         <ChevronDown className={cn("h-4 w-4 shrink-0 text-muted transition-transform", open && "rotate-180")} />

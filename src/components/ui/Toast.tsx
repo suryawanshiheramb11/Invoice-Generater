@@ -55,7 +55,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           <div
             key={t.id}
             className={cn(
-              "flex items-start gap-2 rounded-lg border border-border bg-surface px-3.5 py-3 text-sm shadow-lg"
+              "flex items-start gap-2 rounded-2xl bg-surface px-4 py-3.5 text-sm font-medium shadow-[0_14px_34px_rgba(20,60,45,0.18)]"
             )}
           >
             {icons[t.kind]}

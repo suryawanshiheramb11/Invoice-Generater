@@ -5,7 +5,7 @@ import { cn } from "@/lib/cn";
 export function Label({ className, ...props }: LabelHTMLAttributes<HTMLLabelElement>) {
   return (
     <label
-      className={cn("mb-1.5 block text-xs font-medium text-muted", className)}
+      className={cn("mb-1.5 block text-xs font-bold uppercase tracking-wide text-muted", className)}
       {...props}
     />
   );
@@ -15,7 +15,7 @@ export function Label({ className, ...props }: LabelHTMLAttributes<HTMLLabelElem
 // default `min-width: auto` uses the input's intrinsic content width and overflows the
 // container on narrow (mobile) viewports.
 const inputBase =
-  "w-full min-w-0 h-9 rounded-md border border-border-strong bg-surface px-3 text-sm text-foreground placeholder:text-muted/70 transition-colors focus:border-accent disabled:opacity-50 disabled:bg-black/[0.02]";
+  "w-full min-w-0 h-11 rounded-2xl border-[1.6px] border-border bg-[#F2F8F5] px-4 text-sm font-medium text-foreground placeholder:text-muted/70 transition-colors focus:border-accent focus:bg-surface disabled:opacity-50 disabled:bg-black/[0.02]";
 
 export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(
   ({ className, ...props }, ref) => (
@@ -28,7 +28,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<H
   ({ className, ...props }, ref) => (
     <textarea
       ref={ref}
-      className={cn(inputBase, "h-auto min-h-20 py-2 resize-y", className)}
+      className={cn(inputBase, "h-auto min-h-20 py-2.5 resize-y", className)}
       {...props}
     />
   )

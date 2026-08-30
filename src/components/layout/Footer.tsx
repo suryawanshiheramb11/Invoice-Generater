@@ -5,7 +5,7 @@ export function Footer() {
     <footer className="no-print border-t border-border bg-surface">
       <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-4 py-8 text-sm text-muted sm:flex-row sm:px-6 lg:px-8">
         <p>&copy; {new Date().getFullYear()} Invoice Generator. All rights reserved.</p>
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-6 font-semibold">
           <Link href="/invoice/new" className="hover:text-foreground">
             Create Invoice
           </Link>

@@ -200,11 +200,13 @@ export function InvoiceEditor({ invoiceId, initialInvoice }: { invoiceId?: strin
   }
 
   return (
-    <div className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8">
-      <div className="no-print mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="mx-auto max-w-[1600px] px-5 py-7 sm:px-8 lg:px-10">
+      <div className="no-print mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-xl font-semibold">{invoiceId ? "Edit Invoice" : "Create Invoice"}</h1>
-          <p className="text-sm text-muted">
+          <h1 className="font-display text-3xl font-extrabold tracking-tight text-foreground">
+            {invoiceId ? "Edit invoice" : "New invoice"}
+          </h1>
+          <p className="mt-1.5 text-sm font-medium text-muted">
             {user
               ? saving
                 ? "Saving…"
@@ -311,8 +313,8 @@ export function InvoiceEditor({ invoiceId, initialInvoice }: { invoiceId?: strin
         </div>
 
         {/* Live preview */}
-        <div className="lg:sticky lg:top-20 lg:self-start">
-          <div className="overflow-x-auto rounded-lg bg-black/[0.02] p-4">
+        <div className="lg:sticky lg:top-6 lg:self-start">
+          <div className="overflow-x-auto rounded-[22px] bg-black/[0.02] p-4">
             <InvoicePreview invoice={invoice} />
           </div>
         </div>

@@ -44,36 +44,32 @@ export function ItemsSection({ items, currency, taxMode, showTax, showDiscount, 
     onChange(copy);
   }
 
+  const fieldLabel = "mb-1 block text-[10px] font-bold uppercase tracking-wide text-muted";
+
   return (
     <div className="space-y-3">
-      <div className="hidden gap-2 px-1 text-[11px] font-medium uppercase tracking-wide text-muted sm:grid sm:grid-cols-12">
-        <div className="col-span-4">Item</div>
-        <div className="col-span-1">Qty</div>
-        <div className="col-span-2">Rate</div>
-        {showDiscount && <div className="col-span-2">Discount</div>}
-        {showTax && taxMode === "simple" && <div className="col-span-1">Tax %</div>}
-        <div className={cn("text-right", showDiscount && showTax ? "col-span-2" : "col-span-3")}>Amount</div>
-      </div>
-
       {items.map((item, idx) => (
-        <div key={item.id} className="rounded-lg border border-border p-3">
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-12 sm:items-start">
-            <div className="sm:col-span-4">
-              <Input
-                placeholder="Item name"
-                value={item.name}
-                onChange={(e) => updateItem(item.id, { name: e.target.value })}
-                aria-label="Item name"
-              />
-              <Input
-                placeholder="Description (optional)"
-                value={item.description}
-                onChange={(e) => updateItem(item.id, { description: e.target.value })}
-                className="mt-1.5"
-                aria-label="Item description"
-              />
-            </div>
-            <div className="sm:col-span-1">
+        <div key={item.id} className="rounded-[18px] bg-[#F9FBF9] p-3.5 shadow-[0_2px_8px_rgba(20,60,45,0.04)]">
+          <div className="space-y-1.5">
+            <Input
+              placeholder="Item name"
+              value={item.name}
+              onChange={(e) => updateItem(item.id, { name: e.target.value })}
+              aria-label="Item name"
+              className="bg-surface font-bold"
+            />
+            <Input
+              placeholder="Description (optional)"
+              value={item.description}
+              onChange={(e) => updateItem(item.id, { description: e.target.value })}
+              className="bg-surface"
+              aria-label="Item description"
+            />
+          </div>
+
+          <div className="mt-3 flex flex-wrap items-end gap-2">
+            <div className="w-20">
+              <span className={fieldLabel}>Qty</span>
               <Input
                 type="number"
                 min={0}
@@ -81,9 +77,11 @@ export function ItemsSection({ items, currency, taxMode, showTax, showDiscount, 
                 value={item.quantity}
                 onChange={(e) => updateItem(item.id, { quantity: Number(e.target.value) })}
                 aria-label="Quantity"
+                className="bg-surface px-2 text-center"
               />
             </div>
-            <div className="sm:col-span-2">
+            <div className="min-w-[110px] flex-1">
+              <span className={fieldLabel}>Rate</span>
               <Input
                 type="number"
                 min={0}
@@ -91,31 +89,37 @@ export function ItemsSection({ items, currency, taxMode, showTax, showDiscount, 
                 value={item.rate}
                 onChange={(e) => updateItem(item.id, { rate: Number(e.target.value) })}
                 aria-label="Rate"
+                className="bg-surface px-2.5"
               />
             </div>
             {showDiscount && (
-              <div className="flex gap-1 sm:col-span-2">
-                <Input
-                  type="number"
-                  min={0}
-                  step="any"
-                  value={item.discountValue}
-                  onChange={(e) => updateItem(item.id, { discountValue: Number(e.target.value) })}
-                  aria-label="Discount value"
-                />
-                <select
-                  value={item.discountType}
-                  onChange={(e) => updateItem(item.id, { discountType: e.target.value as InvoiceItem["discountType"] })}
-                  className="h-9 rounded-md border border-border-strong bg-surface px-1 text-xs"
-                  aria-label="Discount type"
-                >
-                  <option value="percentage">%</option>
-                  <option value="fixed">Flat</option>
-                </select>
+              <div className="w-[132px]">
+                <span className={fieldLabel}>Discount</span>
+                <div className="flex gap-1">
+                  <Input
+                    type="number"
+                    min={0}
+                    step="any"
+                    value={item.discountValue}
+                    onChange={(e) => updateItem(item.id, { discountValue: Number(e.target.value) })}
+                    aria-label="Discount value"
+                    className="min-w-0 flex-1 bg-surface px-2"
+                  />
+                  <select
+                    value={item.discountType}
+                    onChange={(e) => updateItem(item.id, { discountType: e.target.value as InvoiceItem["discountType"] })}
+                    className="h-11 w-14 shrink-0 rounded-2xl border-[1.6px] border-border bg-surface px-1 text-xs font-bold"
+                    aria-label="Discount type"
+                  >
+                    <option value="percentage">%</option>
+                    <option value="fixed">Flat</option>
+                  </select>
+                </div>
               </div>
             )}
             {showTax && taxMode === "simple" && (
-              <div className="sm:col-span-1">
+              <div className="w-20">
+                <span className={fieldLabel}>Tax %</span>
                 <Input
                   type="number"
                   min={0}
@@ -123,21 +127,19 @@ export function ItemsSection({ items, currency, taxMode, showTax, showDiscount, 
                   value={item.taxRate}
                   onChange={(e) => updateItem(item.id, { taxRate: Number(e.target.value) })}
                   aria-label="Tax rate"
+                  className="bg-surface px-2"
                 />
               </div>
             )}
-            <div
-              className={cn(
-                "flex items-center justify-between gap-1 sm:justify-end",
-                showDiscount && showTax ? "sm:col-span-2" : "sm:col-span-3"
-              )}
-            >
-              <span className="text-sm font-medium sm:hidden">Amount:</span>
-              <span className="text-sm font-semibold">{formatMoney(itemFinalAmount(item, currency, taxMode), currency)}</span>
+            <div className="ml-auto shrink-0 text-right">
+              <span className={cn(fieldLabel, "text-right")}>Amount</span>
+              <span className="font-display text-base font-extrabold text-accent">
+                {formatMoney(itemFinalAmount(item, currency, taxMode), currency)}
+              </span>
             </div>
           </div>
 
-          <div className="mt-2 flex items-center gap-1 border-t border-border pt-2">
+          <div className="mt-2.5 flex items-center gap-1 border-t border-border pt-2.5">
             <Button type="button" variant="ghost" size="sm" onClick={() => move(item.id, -1)} disabled={idx === 0} aria-label="Move item up">
               <ChevronUp className="h-3.5 w-3.5" />
             </Button>
@@ -168,9 +170,13 @@ export function ItemsSection({ items, currency, taxMode, showTax, showDiscount, 
         </div>
       ))}
 
-      <Button type="button" variant="outline" size="sm" onClick={() => onChange([...items, createEmptyItem()])}>
-        <Plus className="h-3.5 w-3.5" /> Add item
-      </Button>
+      <button
+        type="button"
+        onClick={() => onChange([...items, createEmptyItem()])}
+        className="w-full rounded-[18px] border-2 border-dashed border-accent-soft bg-[#F2F8F5] py-3.5 text-sm font-bold text-accent transition-colors hover:bg-accent-soft"
+      >
+        <Plus className="mr-1.5 inline h-3.5 w-3.5" /> Add another item
+      </button>
     </div>
   );
 }

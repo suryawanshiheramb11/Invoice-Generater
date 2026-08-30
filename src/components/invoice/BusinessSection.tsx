@@ -48,7 +48,7 @@ export function BusinessSection({ business, onChange }: Props) {
         {business.logoUrl ? (
           <div className="relative">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={business.logoUrl} alt="Business logo" className="h-16 w-16 rounded-lg border border-border object-contain" />
+            <img src={business.logoUrl} alt="Business logo" className="h-16 w-16 rounded-2xl border border-border object-contain" />
             <button
               type="button"
               onClick={() => onChange({ logoUrl: null })}
@@ -59,7 +59,7 @@ export function BusinessSection({ business, onChange }: Props) {
             </button>
           </div>
         ) : (
-          <div className="flex h-16 w-16 items-center justify-center rounded-lg border border-dashed border-border-strong text-muted">
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl border-2 border-dashed border-accent-soft bg-[#F2F8F5] text-muted-soft">
             <Upload className="h-5 w-5" />
           </div>
         )}

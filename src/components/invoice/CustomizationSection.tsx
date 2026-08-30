@@ -12,7 +12,7 @@ interface Props {
   onChange: (patch: Partial<InvoiceCustomization>) => void;
 }
 
-const ACCENT_PRESETS = ["#4f46e5", "#0f766e", "#b45309", "#1f2937", "#dc2626", "#2563eb", "#7c3aed", "#111111"];
+const ACCENT_PRESETS = ["#00A97C", "#0f766e", "#b45309", "#1f2937", "#dc2626", "#2563eb", "#7c3aed", "#111111"];
 const FONTS = ["Inter", "Georgia", "Arial", "Helvetica"];
 const DATE_FORMATS: DateFormat[] = ["DD/MM/YYYY", "MM/DD/YYYY", "YYYY-MM-DD", "DD MMM YYYY"];
 
@@ -20,7 +20,7 @@ export function CustomizationSection({ template, customization, onTemplateChange
   return (
     <div className="space-y-5">
       <div>
-        <p className="mb-2 text-xs font-medium text-muted">Template</p>
+        <p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted">Template</p>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {TEMPLATE_LIST.map((t) => (
             <button
@@ -28,18 +28,18 @@ export function CustomizationSection({ template, customization, onTemplateChange
               type="button"
               onClick={() => onTemplateChange(t.id)}
               className={cn(
-                "rounded-md border px-3 py-2 text-left text-xs transition-colors",
-                template === t.id ? "border-accent bg-accent-soft text-accent" : "border-border-strong hover:bg-black/[0.03]"
+                "rounded-2xl border-[1.6px] px-3.5 py-2.5 text-left text-xs transition-colors",
+                template === t.id ? "border-accent bg-accent-soft text-accent" : "border-border bg-[#F2F8F5] hover:bg-accent-soft/40"
               )}
             >
-              <span className="block font-medium">{t.name}</span>
+              <span className="block font-bold">{t.name}</span>
             </button>
           ))}
         </div>
       </div>
 
       <div>
-        <p className="mb-2 text-xs font-medium text-muted">Accent Color</p>
+        <p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted">Accent Color</p>
         <div className="flex flex-wrap items-center gap-2">
           {ACCENT_PRESETS.map((color) => (
             <button

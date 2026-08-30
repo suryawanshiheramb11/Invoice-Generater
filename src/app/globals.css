@@ -1,24 +1,35 @@
 @import "tailwindcss";
 
+/* ------------------------------------------------------------------ */
+/* "Tally" design tokens                                               */
+/* ------------------------------------------------------------------ */
 :root {
-  --background: #f7f7f8;
+  --background: #f9fbf9;
   --surface: #ffffff;
-  --foreground: #16161a;
-  --muted: #6b6b76;
-  --border: #e5e5ea;
-  --border-strong: #d3d3db;
-  --accent: #4f46e5;
+  --foreground: #14231f;
+  --muted: #7c918a;
+  --muted-soft: #9aaea7;
+  --border: #e6efea;
+  --border-strong: #dce7e2;
+  --accent: #00a97c;
+  --accent-hover: #00916a;
   --accent-foreground: #ffffff;
-  --accent-soft: #eef2ff;
-  --danger: #dc2626;
-  --danger-soft: #fef2f2;
-  --success: #16a34a;
-  --success-soft: #f0fdf4;
-  --warning: #d97706;
-  --warning-soft: #fffbeb;
-  --radius-sm: 0.375rem;
-  --radius-md: 0.625rem;
-  --radius-lg: 1rem;
+  --accent-soft: #d8f4ea;
+  --mint: #5ae0b8;
+  --sun: #ffc94d;
+  --danger: #e0523a;
+  --danger-soft: #fff0ec;
+  --success: #00875f;
+  --success-soft: #d6f7ec;
+  --warning: #8a6100;
+  --warning-soft: #fff1d4;
+  --ink: #14231f;
+  --ink-soft: #1e322c;
+  --ink-line: #2a403a;
+  --muted-on-ink: #8fa79e;
+  --radius-sm: 0.6rem;
+  --radius-md: 1rem;
+  --radius-lg: 1.5rem;
 }
 
 @theme inline {
@@ -26,18 +37,27 @@
   --color-surface: var(--surface);
   --color-foreground: var(--foreground);
   --color-muted: var(--muted);
+  --color-muted-soft: var(--muted-soft);
   --color-border: var(--border);
   --color-border-strong: var(--border-strong);
   --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent-soft: var(--accent-soft);
+  --color-mint: var(--mint);
+  --color-sun: var(--sun);
   --color-danger: var(--danger);
   --color-danger-soft: var(--danger-soft);
   --color-success: var(--success);
   --color-success-soft: var(--success-soft);
   --color-warning: var(--warning);
   --color-warning-soft: var(--warning-soft);
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-ink-line: var(--ink-line);
+  --color-muted-on-ink: var(--muted-on-ink);
+  --font-sans: var(--font-dm-sans), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-display: var(--font-sora), var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
 }
 
 body {
@@ -53,7 +73,7 @@ body {
 
 ::selection {
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-hover);
 }
 
 :focus-visible {

@@ -35,13 +35,13 @@ export function Faq() {
   const [open, setOpen] = useState<number | null>(0);
 
   return (
-    <div className="mt-10 divide-y divide-border rounded-xl border border-border bg-background">
+    <div className="mt-10 divide-y divide-border overflow-hidden rounded-[22px] bg-background shadow-[0_4px_14px_rgba(20,60,45,0.05)]">
       {faqs.map((item, i) => {
         const isOpen = open === i;
         return (
           <div key={item.q}>
             <button
-              className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left text-sm font-medium text-foreground"
+              className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left text-sm font-bold text-foreground"
               onClick={() => setOpen(isOpen ? null : i)}
               aria-expanded={isOpen}
               aria-controls={`faq-panel-${i}`}

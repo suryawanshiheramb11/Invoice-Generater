@@ -8,10 +8,11 @@ import type { BusinessInfo } from "@/types/invoice";
 import { getBusinessProfile, saveBusinessProfile } from "@/services/profile";
 import { emptyAddress } from "@/lib/defaults";
 import { BusinessSection } from "@/components/invoice/BusinessSection";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
 import { friendlyErrorMessage } from "@/lib/errors";
+import { avatarColor, initialsOf } from "@/lib/avatar";
 
 const EMPTY_BUSINESS: BusinessInfo = {
   name: "",
@@ -65,34 +66,34 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-8 sm:px-6 lg:px-8">
-      <div className="mb-6">
-        <h1 className="text-xl font-semibold">Settings</h1>
-        <p className="text-sm text-muted">This information is saved to your account and pre-fills new invoices.</p>
-      </div>
+    <div className="mx-auto max-w-2xl px-5 py-8 sm:px-8 lg:px-10">
+      <h1 className="font-display text-3xl font-extrabold tracking-tight text-foreground">Settings</h1>
+      <p className="mt-1.5 text-sm text-muted">This information is saved to your account and pre-fills new invoices.</p>
 
+      <Card className="mt-7 p-5">
+        <div className="flex items-center gap-3.5">
+          <span
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl font-display text-base font-bold text-white"
+            style={{ background: avatarColor(user.email ?? "?") }}
+          >
+            {initialsOf((user.email ?? "?").split("@")[0])}
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-bold text-foreground">{business.name || "Your account"}</p>
+            <p className="truncate text-sm text-muted">{user.email}</p>
+          </div>
+        </div>
+      </Card>
+
+      <p className="mb-2 mt-7 text-xs font-bold uppercase tracking-wide text-muted-soft">Business</p>
       <Card>
-        <CardHeader>
-          <CardTitle>Your Business</CardTitle>
-        </CardHeader>
-        <CardContent>
+        <CardContent className="p-6">
           <BusinessSection business={business} onChange={(patch) => setBusiness({ ...business, ...patch })} />
           <div className="mt-5 flex justify-end border-t border-border pt-4">
             <Button onClick={handleSave} loading={saving}>
-              <Save className="h-3.5 w-3.5" /> Save Profile
+              <Save className="h-4 w-4" /> Save Profile
             </Button>
           </div>
-        </CardContent>
-      </Card>
-
-      <Card className="mt-6">
-        <CardHeader>
-          <CardTitle>Account</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted">
-            Signed in as <strong className="text-foreground">{user.email}</strong>
-          </p>
         </CardContent>
       </Card>
     </div>

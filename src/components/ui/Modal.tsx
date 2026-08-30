@@ -42,23 +42,23 @@ export function Modal({ open, onClose, title, children, className }: ModalProps)
         aria-labelledby="modal-title"
         tabIndex={-1}
         className={cn(
-          "w-full max-w-lg rounded-xl border border-border bg-surface shadow-xl focus:outline-none",
+          "w-full max-w-lg rounded-[26px] bg-surface shadow-2xl focus:outline-none",
           className
         )}
       >
-        <div className="flex items-center justify-between border-b border-border px-5 py-4">
-          <h2 id="modal-title" className="text-sm font-semibold">
+        <div className="flex items-center justify-between border-b border-border px-6 py-5">
+          <h2 id="modal-title" className="font-display text-base font-bold">
             {title}
           </h2>
           <button
             onClick={onClose}
             aria-label="Close dialog"
-            className="rounded-md p-1 text-muted hover:bg-black/[0.05] hover:text-foreground"
+            className="rounded-xl p-1.5 text-muted hover:bg-black/[0.05] hover:text-foreground"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
-        <div className="max-h-[75vh] overflow-y-auto px-5 py-4">{children}</div>
+        <div className="max-h-[75vh] overflow-y-auto px-6 py-5">{children}</div>
       </div>
     </div>
   );

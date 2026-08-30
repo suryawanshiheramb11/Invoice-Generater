@@ -8,7 +8,7 @@ import { LogIn } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/Button";
 import { Field, Input } from "@/components/ui/Field";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { Card, CardContent } from "@/components/ui/Card";
 import { useToast } from "@/components/ui/Toast";
 import { friendlyErrorMessage } from "@/lib/errors";
 import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
@@ -46,15 +46,15 @@ function LoginForm() {
   }
 
   return (
-    <div className="mx-auto max-w-sm px-4 py-16">
-      <Card>
-        <CardHeader>
-          <CardTitle>Log in to your account</CardTitle>
-        </CardHeader>
-        <CardContent>
+    <div className="mx-auto max-w-sm px-4 py-16 sm:py-24">
+      <h1 className="text-center font-display text-3xl font-extrabold tracking-tight text-foreground">Welcome back</h1>
+      <p className="mt-2 text-center text-sm text-muted">Your drafts are exactly where you left them.</p>
+
+      <Card className="mt-8">
+        <CardContent className="p-6">
           <GoogleSignInButton redirectTo={searchParams.get("redirect") || "/dashboard"} />
 
-          <div className="my-4 flex items-center gap-3 text-xs text-muted">
+          <div className="my-5 flex items-center gap-3 text-xs font-semibold text-muted-soft">
             <div className="h-px flex-1 bg-border" />
             or
             <div className="h-px flex-1 bg-border" />
@@ -74,17 +74,17 @@ function LoginForm() {
               />
             </Field>
             <div className="text-right">
-              <Link href="/forgot-password" className="text-xs text-accent hover:underline">
+              <Link href="/forgot-password" className="text-xs font-bold text-accent hover:text-accent-hover">
                 Forgot password?
               </Link>
             </div>
-            <Button type="submit" className="w-full" loading={loading}>
-              <LogIn className="h-3.5 w-3.5" /> Log In
+            <Button type="submit" className="w-full" size="lg" loading={loading}>
+              <LogIn className="h-4 w-4" /> Log In
             </Button>
           </form>
-          <p className="mt-4 text-center text-xs text-muted">
+          <p className="mt-5 text-center text-sm font-medium text-muted">
             Don&apos;t have an account?{" "}
-            <Link href="/signup" className="text-accent hover:underline">
+            <Link href="/signup" className="font-bold text-accent hover:text-accent-hover">
               Sign up
             </Link>
           </p>

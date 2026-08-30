@@ -7,7 +7,7 @@ import { KeyRound } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/Button";
 import { Field, Input } from "@/components/ui/Field";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { Card, CardContent } from "@/components/ui/Card";
 import { useToast } from "@/components/ui/Toast";
 import { friendlyErrorMessage } from "@/lib/errors";
 
@@ -53,12 +53,13 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <div className="mx-auto max-w-sm px-4 py-16">
-      <Card>
-        <CardHeader>
-          <CardTitle>Set a new password</CardTitle>
-        </CardHeader>
-        <CardContent>
+    <div className="mx-auto max-w-sm px-4 py-16 sm:py-24">
+      <h1 className="text-center font-display text-3xl font-extrabold tracking-tight text-foreground">
+        Set a new password
+      </h1>
+
+      <Card className="mt-8">
+        <CardContent className="p-6">
           {!ready ? (
             <p className="text-sm text-muted">Verifying your reset link…</p>
           ) : (
@@ -73,8 +74,8 @@ export default function ResetPasswordPage() {
                   onChange={(e) => setPassword(e.target.value)}
                 />
               </Field>
-              <Button type="submit" className="w-full" loading={loading}>
-                <KeyRound className="h-3.5 w-3.5" /> Update Password
+              <Button type="submit" className="w-full" size="lg" loading={loading}>
+                <KeyRound className="h-4 w-4" /> Update Password
               </Button>
             </form>
           )}

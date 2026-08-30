@@ -34,7 +34,7 @@ export function PaymentInfoSection({ paymentInfo, onChange }: Props) {
         </Field>
       </div>
 
-      <div className="rounded-lg border border-border bg-black/[0.02] p-3">
+      <div className="rounded-2xl bg-[#F2F8F5] p-3.5">
         <Field label="UPI ID" hint="Prominently supported for Indian payments.">
           <Input value={paymentInfo.upiId} onChange={(e) => onChange({ upiId: e.target.value })} placeholder="yourname@bank" />
         </Field>

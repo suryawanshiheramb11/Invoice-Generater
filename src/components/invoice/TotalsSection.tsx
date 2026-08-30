@@ -22,7 +22,7 @@ export function TotalsSection({ invoice, onChange }: Props) {
   return (
     <div className="space-y-5">
       <div>
-        <p className="mb-1.5 text-xs font-medium text-muted">Invoice Discount</p>
+        <p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-muted">Invoice Discount</p>
         <div className="flex gap-2">
           <Input
             type="number"
@@ -43,36 +43,36 @@ export function TotalsSection({ invoice, onChange }: Props) {
       </div>
 
       <div>
-        <p className="mb-1.5 text-xs font-medium text-muted">Tax Mode</p>
+        <p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-muted">Tax Mode</p>
         <div className="grid grid-cols-2 gap-2">
           <button
             type="button"
             onClick={() => onChange({ taxMode: "simple" as TaxMode })}
             className={cn(
-              "rounded-md border px-3 py-2 text-left text-xs",
-              invoice.taxMode === "simple" ? "border-accent bg-accent-soft text-accent" : "border-border-strong"
+              "rounded-2xl border-[1.6px] px-3.5 py-2.5 text-left text-xs transition-colors",
+              invoice.taxMode === "simple" ? "border-accent bg-accent-soft" : "border-border bg-[#F2F8F5]"
             )}
           >
-            <span className="block font-medium">Simple Tax</span>
+            <span className="block font-bold text-foreground">Simple Tax</span>
             <span className="block text-[11px] text-muted">Single % per item</span>
           </button>
           <button
             type="button"
             onClick={() => onChange({ taxMode: "gst" as TaxMode })}
             className={cn(
-              "rounded-md border px-3 py-2 text-left text-xs",
-              invoice.taxMode === "gst" ? "border-accent bg-accent-soft text-accent" : "border-border-strong"
+              "rounded-2xl border-[1.6px] px-3.5 py-2.5 text-left text-xs transition-colors",
+              invoice.taxMode === "gst" ? "border-accent bg-accent-soft" : "border-border bg-[#F2F8F5]"
             )}
           >
-            <span className="block font-medium">GST (India)</span>
+            <span className="block font-bold text-foreground">GST (India)</span>
             <span className="block text-[11px] text-muted">CGST / SGST / IGST</span>
           </button>
         </div>
       </div>
 
       {invoice.taxMode === "gst" && (
-        <div className="rounded-lg border border-border bg-black/[0.02] p-3">
-          <label className="flex items-center gap-2 text-xs font-medium">
+        <div className="rounded-2xl bg-[#F2F8F5] p-3.5">
+          <label className="flex items-center gap-2 text-xs font-bold text-foreground">
             <input
               type="checkbox"
               checked={invoice.gst.useIgst}
@@ -85,15 +85,15 @@ export function TotalsSection({ invoice, onChange }: Props) {
           <div className="mt-3 grid grid-cols-2 gap-3">
             {invoice.gst.useIgst ? (
               <Field label="IGST %">
-                <Input type="number" min={0} step="any" value={invoice.gst.igstRate} onChange={(e) => updateGst({ igstRate: Number(e.target.value) })} />
+                <Input type="number" min={0} step="any" value={invoice.gst.igstRate} onChange={(e) => updateGst({ igstRate: Number(e.target.value) })} className="bg-surface" />
               </Field>
             ) : (
               <>
                 <Field label="CGST %">
-                  <Input type="number" min={0} step="any" value={invoice.gst.cgstRate} onChange={(e) => updateGst({ cgstRate: Number(e.target.value) })} />
+                  <Input type="number" min={0} step="any" value={invoice.gst.cgstRate} onChange={(e) => updateGst({ cgstRate: Number(e.target.value) })} className="bg-surface" />
                 </Field>
                 <Field label="SGST %">
-                  <Input type="number" min={0} step="any" value={invoice.gst.sgstRate} onChange={(e) => updateGst({ sgstRate: Number(e.target.value) })} />
+                  <Input type="number" min={0} step="any" value={invoice.gst.sgstRate} onChange={(e) => updateGst({ sgstRate: Number(e.target.value) })} className="bg-surface" />
                 </Field>
               </>
             )}
@@ -110,7 +110,7 @@ export function TotalsSection({ invoice, onChange }: Props) {
         </Field>
       </div>
 
-      <div className="space-y-1.5 rounded-lg border border-border bg-black/[0.02] p-4 text-sm">
+      <div className="space-y-2 rounded-2xl bg-ink p-4 text-sm">
         <SummaryRow label="Subtotal" value={fmt(totals.subtotal)} />
         {totals.itemDiscountTotal > 0 && <SummaryRow label="Item discounts" value={`-${fmt(totals.itemDiscountTotal)}`} />}
         {totals.invoiceDiscount > 0 && <SummaryRow label="Invoice discount" value={`-${fmt(totals.invoiceDiscount)}`} />}
@@ -128,9 +128,9 @@ export function TotalsSection({ invoice, onChange }: Props) {
         )}
         {totals.shipping > 0 && <SummaryRow label="Shipping" value={fmt(totals.shipping)} />}
         {totals.otherCharges > 0 && <SummaryRow label="Other charges" value={fmt(totals.otherCharges)} />}
-        <div className="flex justify-between border-t border-border-strong pt-2 text-base font-bold">
-          <span>Total</span>
-          <span>{fmt(totals.total)}</span>
+        <div className="flex items-baseline justify-between border-t border-ink-line pt-3 text-sm">
+          <span className="font-bold text-white">Total</span>
+          <span className="font-display text-xl font-extrabold tracking-tight text-mint">{fmt(totals.total)}</span>
         </div>
       </div>
     </div>
@@ -139,9 +139,9 @@ export function TotalsSection({ invoice, onChange }: Props) {
 
 function SummaryRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex justify-between text-muted">
+    <div className="flex justify-between font-medium text-muted-on-ink">
       <span>{label}</span>
-      <span className="text-foreground">{value}</span>
+      <span className="text-white">{value}</span>
     </div>
   );
 }

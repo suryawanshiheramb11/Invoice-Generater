@@ -158,13 +158,24 @@ create policy "invoice_items_delete_own" on public.invoice_items
 create or replace function public.next_invoice_number(p_user_id uuid)
 returns text
 language plpgsql
-security definer
+security invoker
 set search_path = public
 as $$
 declare
   v_seq integer;
   v_year text := to_char(current_date, 'YYYY');
 begin
+  -- This function only ever touches the *calling user's own* profiles row, and
+  -- the profiles_insert_own / profiles_update_own RLS policies already permit
+  -- exactly that for the row's owner — so it runs as SECURITY INVOKER (the
+  -- default) and is fully subject to RLS, with no elevated-privilege surface
+  -- to lock down. The check below is what makes that true: without it, a
+  -- caller could pass an arbitrary p_user_id and (if it ever became SECURITY
+  -- DEFINER again) tamper with another user's invoice sequence counter.
+  if auth.uid() is null or auth.uid() <> p_user_id then
+    raise exception 'not authorized';
+  end if;
+
   insert into public.profiles (user_id)
   values (p_user_id)
   on conflict (user_id) do nothing;
@@ -179,6 +190,13 @@ begin
 end;
 $$;
 
+-- Postgres grants EXECUTE to the PUBLIC pseudo-role by default on function
+-- creation, and Supabase's default schema setup separately grants EXECUTE on
+-- new public-schema functions directly to `anon` — both must be revoked
+-- explicitly so anonymous/unauthenticated callers can't invoke this
+-- security-definer function at all.
+revoke all on function public.next_invoice_number(uuid) from public;
+revoke all on function public.next_invoice_number(uuid) from anon;
 grant execute on function public.next_invoice_number(uuid) to authenticated;
 
 -- =========================================================================
@@ -187,6 +205,7 @@ grant execute on function public.next_invoice_number(uuid) to authenticated;
 create or replace function public.set_updated_at()
 returns trigger
 language plpgsql
+set search_path = public
 as $$
 begin
   new.updated_at = now();
@@ -213,8 +232,11 @@ insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_typ
 values ('logos', 'logos', true, 2097152, array['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'])
 on conflict (id) do nothing;
 
-create policy "logos_public_read" on storage.objects
-  for select using (bucket_id = 'logos');
+-- No SELECT policy is defined here on purpose: the bucket's own `public = true`
+-- flag already serves objects unauthenticated via the public URL endpoint
+-- (getPublicUrl), which bypasses RLS entirely. A broad `for select using
+-- (bucket_id = 'logos')` policy would additionally let anyone *list/enumerate*
+-- every uploaded file via the Storage API, which this app never needs.
 
 create policy "logos_owner_insert" on storage.objects
   for insert with check (
