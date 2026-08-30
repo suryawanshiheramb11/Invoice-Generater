@@ -108,12 +108,47 @@ export interface Database {
           },
         ];
       };
+      invoice_pdf_exports: {
+        Row: {
+          id: string;
+          invoice_id: string;
+          user_id: string;
+          storage_path: string;
+          share_token: string;
+          created_at: string;
+          expires_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["invoice_pdf_exports"]["Row"]> & {
+          invoice_id: string;
+          user_id: string;
+          storage_path: string;
+          expires_at: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["invoice_pdf_exports"]["Row"]>;
+        Relationships: [
+          {
+            foreignKeyName: "invoice_pdf_exports_invoice_id_fkey";
+            columns: ["invoice_id"];
+            isOneToOne: false;
+            referencedRelation: "invoices";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: Record<string, never>;
     Functions: {
       next_invoice_number: {
         Args: { p_user_id: string };
         Returns: string;
+      };
+      cleanup_expired_pdf_exports: {
+        Args: Record<string, never>;
+        Returns: undefined;
+      };
+      get_pdf_export_by_token: {
+        Args: { p_token: string };
+        Returns: { storage_path: string; invoice_number: string; business_name: string | null }[];
       };
     };
   };

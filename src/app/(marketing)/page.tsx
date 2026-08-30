@@ -13,6 +13,41 @@ import {
 import { Button } from "@/components/ui/Button";
 import { TemplateShowcase } from "@/components/landing/TemplateShowcase";
 import { Faq } from "@/components/landing/Faq";
+import { faqs } from "@/lib/faqData";
+
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://invoice-generator.vercel.app";
+
+// Structured data so search engines and AI assistants can quote this page directly
+// when answering "how do I make an invoice" / "free invoice generator" style queries,
+// instead of only seeing the rendered marketing copy.
+const softwareAppJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: "Invoice Generator",
+  url: siteUrl,
+  applicationCategory: "FinanceApplication",
+  operatingSystem: "Any (runs in a web browser)",
+  description:
+    "Free online invoice generator: create, customize, print, and download professional invoices with GST support, multiple currencies, and five templates — no signup required.",
+  offers: {
+    "@type": "Offer",
+    price: "0",
+    priceCurrency: "USD",
+  },
+};
+
+const faqJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqs.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: {
+      "@type": "Answer",
+      text: item.a,
+    },
+  })),
+};
 
 const steps = [
   {
@@ -43,6 +78,8 @@ const features = [
 export default function Home() {
   return (
     <div>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareAppJsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
       {/* Hero */}
       <section className="bg-surface">
         <div className="mx-auto max-w-5xl px-4 py-20 text-center sm:px-6 sm:py-28 lg:px-8">

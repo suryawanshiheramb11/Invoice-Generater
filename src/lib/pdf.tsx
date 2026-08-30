@@ -6,7 +6,7 @@ import { InvoicePdfDocument } from "@/components/invoice/InvoicePdfDocument";
  * Renders the invoice to a PDF blob entirely in the browser (no server round-trip),
  * so it works identically after deployment without a headless-browser backend.
  */
-async function generatePdfFile(invoice: Invoice, qrDataUrl: string | null) {
+export async function generatePdfFile(invoice: Invoice, qrDataUrl: string | null) {
   const blob = await pdf(<InvoicePdfDocument invoice={invoice} qrDataUrl={qrDataUrl} />).toBlob();
   const filename = `${invoice.invoiceNumber || "invoice"}.pdf`;
   return new File([blob], filename, { type: "application/pdf" });

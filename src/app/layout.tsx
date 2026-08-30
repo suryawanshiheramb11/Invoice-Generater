@@ -27,6 +27,19 @@ export const metadata: Metadata = {
   },
   description:
     "Create professional invoices online in seconds. Customize invoices, calculate taxes, download PDFs, and print invoices easily.",
+  keywords: [
+    "invoice generator",
+    "free invoice generator",
+    "online invoice maker",
+    "create invoice online",
+    "invoice template",
+    "GST invoice generator",
+    "bill generator",
+    "PDF invoice",
+  ],
+  alternates: {
+    canonical: "/",
+  },
   openGraph: {
     type: "website",
     url: siteUrl,
