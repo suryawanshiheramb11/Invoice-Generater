@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Download, Loader2, Printer, Save, Sparkles, Copy } from "lucide-react";
+import { Download, Loader2, Printer, Save, Share2, Sparkles, Copy } from "lucide-react";
 import type { Invoice, TemplateId } from "@/types/invoice";
 import { EditorSection } from "@/components/invoice/EditorSection";
 import { BusinessSection } from "@/components/invoice/BusinessSection";
@@ -41,6 +41,7 @@ export function InvoiceEditor({ invoiceId, initialInvoice }: { invoiceId?: strin
   const [saving, setSaving] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [downloading, setDownloading] = useState(false);
+  const [sharing, setSharing] = useState(false);
   const initializedProfile = useRef(false);
 
   // Initialize a new invoice. Guests resume their local draft (if any); signed-in users
@@ -186,6 +187,27 @@ export function InvoiceEditor({ invoiceId, initialInvoice }: { invoiceId?: strin
     }
   }
 
+  async function handleSharePdf() {
+    if (!invoice) return;
+    const errors = validateInvoice(invoice);
+    if (errors.length > 0) {
+      show(errors[0], "error");
+      return;
+    }
+    setSharing(true);
+    try {
+      const { shareInvoicePdf } = await import("@/lib/pdf");
+      const result = await shareInvoicePdf(invoice, qrDataUrl);
+      if (result === "downloaded") {
+        show("Sharing isn't supported in this browser — downloaded the PDF instead.", "info");
+      }
+    } catch {
+      show("Couldn't share the PDF. Please try again.", "error");
+    } finally {
+      setSharing(false);
+    }
+  }
+
   function loadDemo() {
     if (!invoice) return;
     setInvoice(createDemoInvoice(invoice.invoiceNumber));
@@ -219,28 +241,31 @@ export function InvoiceEditor({ invoiceId, initialInvoice }: { invoiceId?: strin
         <div className="flex flex-wrap items-center gap-2">
           {!invoiceId && (
             <Button variant="ghost" size="sm" onClick={loadDemo}>
-              <Sparkles className="h-3.5 w-3.5" /> Load demo data
+              <Sparkles className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Load demo data</span>
             </Button>
           )}
           {invoiceId && (
             <Button variant="outline" size="sm" onClick={handleDuplicate}>
-              <Copy className="h-3.5 w-3.5" /> Duplicate
+              <Copy className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Duplicate</span>
             </Button>
           )}
           <Button variant="outline" size="sm" onClick={handlePrint}>
-            <Printer className="h-3.5 w-3.5" /> Print Invoice
+            <Printer className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Print Invoice</span>
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleSharePdf} loading={sharing}>
+            <Share2 className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Share</span>
           </Button>
           <Button variant="outline" size="sm" onClick={handleDownloadPdf} loading={downloading}>
-            <Download className="h-3.5 w-3.5" /> Download PDF
+            <Download className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Download PDF</span>
           </Button>
           {user ? (
             <Button size="sm" onClick={() => persist(false)} loading={saving}>
-              <Save className="h-3.5 w-3.5" /> Save Invoice
+              <Save className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Save Invoice</span>
             </Button>
           ) : (
             <Link href="/signup">
               <Button size="sm">
-                <Save className="h-3.5 w-3.5" /> Sign up to save
+                <Save className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Sign up to save</span>
               </Button>
             </Link>
           )}

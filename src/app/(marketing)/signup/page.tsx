@@ -16,6 +16,7 @@ export default function SignupPage() {
   const { show } = useToast();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
 
@@ -25,13 +26,17 @@ export default function SignupPage() {
       show("Password must be at least 8 characters.", "error");
       return;
     }
+    if (password !== confirmPassword) {
+      show("Passwords do not match.", "error");
+      return;
+    }
     setLoading(true);
     try {
       const supabase = createClient();
       const { error } = await supabase.auth.signUp({
         email,
         password,
-        options: { emailRedirectTo: `${window.location.origin}/dashboard` },
+        options: { emailRedirectTo: `${window.location.origin}/auth/callback?next=/dashboard` },
       });
       if (error) throw error;
       setDone(true);
@@ -82,6 +87,20 @@ export default function SignupPage() {
                 autoComplete="new-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+              />
+            </Field>
+            <Field
+              label="Confirm Password"
+              required
+              error={confirmPassword.length > 0 && password !== confirmPassword ? "Passwords do not match." : undefined}
+            >
+              <Input
+                type="password"
+                required
+                minLength={8}
+                autoComplete="new-password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
               />
             </Field>
             <Button type="submit" className="w-full" size="lg" loading={loading}>
