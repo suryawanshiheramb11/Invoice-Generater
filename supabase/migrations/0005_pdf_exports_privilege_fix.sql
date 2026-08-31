@@ -1,0 +1,12 @@
+-- Supabase grants EXECUTE on newly-created public-schema functions directly to
+-- the anon and authenticated roles (not just the PUBLIC pseudo-role), matching
+-- the same gap already fixed for next_invoice_number in 0002_security_fixes.sql.
+-- `revoke ... from public` alone doesn't touch those direct per-role grants, so
+-- cleanup_expired_pdf_exports ended up callable by anon despite only ever
+-- granting it to authenticated.
+--
+-- get_pdf_export_by_token is intentionally left callable by anon: unauthenticated
+-- visitors opening a /share/[token] link have to be able to call it. It's safe to
+-- expose because it only returns data for an exact share_token match, exposes no
+-- other rows, and self-deletes anything expired — there's no enumeration surface.
+revoke all on function public.cleanup_expired_pdf_exports() from anon;

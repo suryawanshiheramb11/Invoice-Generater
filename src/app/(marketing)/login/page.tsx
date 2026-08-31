@@ -11,6 +11,7 @@ import { Field, Input } from "@/components/ui/Field";
 import { Card, CardContent } from "@/components/ui/Card";
 import { useToast } from "@/components/ui/Toast";
 import { friendlyErrorMessage } from "@/lib/errors";
+import { safeRedirectPath } from "@/lib/redirect";
 import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
 
 function LoginForm() {
@@ -36,7 +37,7 @@ function LoginForm() {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
       show("Welcome back!", "success");
-      router.push(searchParams.get("redirect") || "/dashboard");
+      router.push(safeRedirectPath(searchParams.get("redirect")));
       router.refresh();
     } catch (err) {
       show(friendlyErrorMessage(err), "error");
@@ -52,7 +53,7 @@ function LoginForm() {
 
       <Card className="mt-8">
         <CardContent className="p-6">
-          <GoogleSignInButton redirectTo={searchParams.get("redirect") || "/dashboard"} />
+          <GoogleSignInButton redirectTo={safeRedirectPath(searchParams.get("redirect"))} />
 
           <div className="my-5 flex items-center gap-3 text-xs font-semibold text-muted-soft">
             <div className="h-px flex-1 bg-border" />

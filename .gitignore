@@ -34,7 +34,3 @@ next-env.d.ts
 .vscode
 .idea
 .env*
-
-# Agent config files
-CLAUDE.md
-AGENTS.md
