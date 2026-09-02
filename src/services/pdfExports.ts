@@ -1,6 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
 import { ServiceError } from "@/services/invoices";
-import { generatePdfFile } from "@/lib/pdf";
 import type { Invoice } from "@/types/invoice";
 
 export type PdfRetention = "24h" | "7d";
@@ -38,6 +37,7 @@ export async function saveInvoicePdf(
     () => {}
   );
 
+  const { generatePdfFile } = await import("@/lib/pdf");
   const file = await generatePdfFile(invoice, qrDataUrl);
   const shareToken = crypto.randomUUID().replace(/-/g, "");
   const path = `${user.id}/${shareToken}.pdf`;

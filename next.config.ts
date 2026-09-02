@@ -12,10 +12,18 @@ const scriptSrc =
 const contentSecurityPolicy = [
   "default-src 'self'",
   scriptSrc,
+  // yoga-layout (used by @react-pdf/renderer to lay out PDFs) runs its WASM
+  // module off a worker it spins up from a blob: URL — without this, the
+  // browser silently blocks the worker and PDF generation (Share/Download/
+  // Save-PDF) hangs forever instead of erroring.
+  "worker-src 'self' blob:",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https://*.supabase.co",
   "font-src 'self' data:",
-  "connect-src 'self' https://*.supabase.co",
+  // 'blob:' + 'data:' here for the same reason as worker-src above: the wasm
+  // module is embedded as a data: URI and yoga-layout fetch()es it to get the
+  // bytes, which connect-src (not img-src) gates.
+  "connect-src 'self' blob: data: https://*.supabase.co",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",
