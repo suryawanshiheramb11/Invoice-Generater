@@ -139,14 +139,20 @@ export interface Database {
         Row: {
           id: string;
           invoice_id: string;
-          storage_path: string;
+          storage_path: string | null;
           method: string;
           note: string;
           submitted_at: string;
+          recorded_by: string;
+          ai_status: string;
+          ai_notes: string;
+          ai_checked_at: string | null;
+          owner_status: string;
+          owner_reviewed_at: string | null;
+          high_priority: boolean;
         };
         Insert: Partial<Database["public"]["Tables"]["invoice_payment_proofs"]["Row"]> & {
           invoice_id: string;
-          storage_path: string;
         };
         Update: Partial<Database["public"]["Tables"]["invoice_payment_proofs"]["Row"]>;
         Relationships: [
@@ -188,7 +194,7 @@ export interface Database {
           p_note?: string;
           p_partial?: boolean;
         };
-        Returns: undefined;
+        Returns: string;
       };
     };
   };

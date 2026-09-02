@@ -1,13 +1,24 @@
 import { pdf } from "@react-pdf/renderer";
 import type { Invoice } from "@/types/invoice";
 import { InvoicePdfDocument } from "@/components/invoice/InvoicePdfDocument";
+import { toPngDataUrl } from "@/lib/rasterizeImage";
 
 /**
  * Renders the invoice to a PDF blob entirely in the browser (no server round-trip),
  * so it works identically after deployment without a headless-browser backend.
  */
 export async function generatePdfFile(invoice: Invoice, qrDataUrl: string | null) {
-  const blob = await pdf(<InvoicePdfDocument invoice={invoice} qrDataUrl={qrDataUrl} />).toBlob();
+  // react-pdf's <Image> can only embed JPEG/PNG, but the logo uploader also accepts SVG
+  // and WebP (fine for the HTML preview) — re-encode to PNG here so the logo actually
+  // shows up in the generated PDF regardless of the source format.
+  let pdfInvoice = invoice;
+  if (invoice.business.logoUrl) {
+    const pngLogo = await toPngDataUrl(invoice.business.logoUrl);
+    if (pngLogo) {
+      pdfInvoice = { ...invoice, business: { ...invoice.business, logoUrl: pngLogo } };
+    }
+  }
+  const blob = await pdf(<InvoicePdfDocument invoice={pdfInvoice} qrDataUrl={qrDataUrl} />).toBlob();
   const filename = `${invoice.invoiceNumber || "invoice"}.pdf`;
   return new File([blob], filename, { type: "application/pdf" });
 }

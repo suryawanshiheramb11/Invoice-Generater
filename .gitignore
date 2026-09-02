@@ -29,6 +29,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# tesseract.js OCR language data (downloaded on demand; see cachePath in paymentVerification.ts)
+*.traineddata
+
 # OS / IDE
 .DS_Store
 .vscode
