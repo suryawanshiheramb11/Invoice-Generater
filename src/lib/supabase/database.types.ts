@@ -135,6 +135,30 @@ export interface Database {
           },
         ];
       };
+      invoice_payment_proofs: {
+        Row: {
+          id: string;
+          invoice_id: string;
+          storage_path: string;
+          method: string;
+          note: string;
+          submitted_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["invoice_payment_proofs"]["Row"]> & {
+          invoice_id: string;
+          storage_path: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["invoice_payment_proofs"]["Row"]>;
+        Relationships: [
+          {
+            foreignKeyName: "invoice_payment_proofs_invoice_id_fkey";
+            columns: ["invoice_id"];
+            isOneToOne: false;
+            referencedRelation: "invoices";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -148,7 +172,23 @@ export interface Database {
       };
       get_pdf_export_by_token: {
         Args: { p_token: string };
-        Returns: { storage_path: string; invoice_number: string; business_name: string | null }[];
+        Returns: {
+          storage_path: string;
+          invoice_number: string;
+          business_name: string | null;
+          invoice_id: string;
+          invoice_status: string;
+        }[];
+      };
+      submit_payment_proof: {
+        Args: {
+          p_token: string;
+          p_storage_path: string;
+          p_method: string;
+          p_note?: string;
+          p_partial?: boolean;
+        };
+        Returns: undefined;
       };
     };
   };

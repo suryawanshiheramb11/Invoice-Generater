@@ -15,6 +15,7 @@ import { NotesSection } from "@/components/invoice/NotesSection";
 import { PaymentInfoSection } from "@/components/invoice/PaymentInfoSection";
 import { CustomizationSection } from "@/components/invoice/CustomizationSection";
 import { PdfHistorySection } from "@/components/invoice/PdfHistorySection";
+import { PaymentProofSection } from "@/components/invoice/PaymentProofSection";
 import { InvoicePreview } from "@/components/invoice/InvoicePreview";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
@@ -356,6 +357,12 @@ export function InvoiceEditor({ invoiceId, initialInvoice }: { invoiceId?: strin
           {user && invoiceId && (
             <EditorSection title="Share PDF" subtitle="Save a snapshot others can view via a link." defaultOpen={false}>
               <PdfHistorySection invoice={invoice} qrDataUrl={qrDataUrl} />
+            </EditorSection>
+          )}
+
+          {user && invoiceId && (
+            <EditorSection title="Payment Status" subtitle="Track payment proof your client submits." defaultOpen={false}>
+              <PaymentProofSection invoice={invoice} />
             </EditorSection>
           )}
         </div>

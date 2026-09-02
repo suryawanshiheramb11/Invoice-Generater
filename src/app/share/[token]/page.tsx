@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { FileText, Download } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { PaymentProofForm } from "@/components/invoice/PaymentProofForm";
 
 export default async function SharedInvoicePage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
@@ -41,6 +42,11 @@ export default async function SharedInvoicePage({ params }: { params: Promise<{ 
       >
         <Download className="h-4 w-4" /> Download PDF
       </a>
+
+      {result.invoice_id && (
+        <PaymentProofForm token={token} invoiceId={result.invoice_id} initialStatus={result.invoice_status ?? "sent"} />
+      )}
+
       <p className="mt-10 text-xs text-muted">
         Made with{" "}
         <Link href="/" className="font-bold text-accent hover:text-accent-hover">
