@@ -34,3 +34,7 @@ next-env.d.ts
 .vscode
 .idea
 .env*
+
+# AI Agent instruction files
+AGENTS.md
+CLAUDE.md
