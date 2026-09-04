@@ -9,8 +9,8 @@ export const runtime = "nodejs";
 /**
  * Runs the local-OCR check (step 1 of the two-step verification) against one payment
  * proof and stores the verdict. Called two ways, both already-authorized elsewhere:
- *  - by the share page right after a client submits proof (passes the share token —
- *    the same credential that already let them view the invoice and submit the proof)
+ *  - by the /pay/[id] (or /share/[token]) page right after a client submits proof (passes
+ *    the invoice id — the same credential that already let them submit the proof itself)
  *  - by the owner's dashboard, to re-run the check on demand (uses their session)
  * Either way this only ever writes an advisory ai_status/ai_notes onto a proof row —
  * it never changes the invoice's paid/unpaid status, so getting the auth check slightly
@@ -19,7 +19,7 @@ export const runtime = "nodejs";
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id: proofId } = await params;
   const body = await request.json().catch(() => ({}));
-  const token = typeof body.token === "string" ? body.token : null;
+  const invoiceId = typeof body.invoiceId === "string" ? body.invoiceId : null;
 
   const admin = createAdminClient();
 
@@ -35,9 +35,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "This proof has no attached file to verify." }, { status: 400 });
   }
 
-  const authorized = token
-    ? await tokenMatchesInvoice(admin, token, proof.invoice_id)
-    : await sessionOwnsInvoice(proof.invoice_id);
+  const authorized = invoiceId ? invoiceId === proof.invoice_id : await sessionOwnsInvoice(proof.invoice_id);
   if (!authorized) {
     return NextResponse.json({ error: "Not authorized." }, { status: 403 });
   }
@@ -78,19 +76,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   return NextResponse.json({ status: result.status, notes: result.notes, confidence: result.confidence });
-}
-
-async function tokenMatchesInvoice(
-  admin: ReturnType<typeof createAdminClient>,
-  token: string,
-  invoiceId: string
-): Promise<boolean> {
-  const { data } = await admin
-    .from("invoice_pdf_exports")
-    .select("invoice_id, expires_at")
-    .eq("share_token", token)
-    .maybeSingle();
-  return Boolean(data && data.invoice_id === invoiceId && new Date(data.expires_at) > new Date());
 }
 
 async function sessionOwnsInvoice(invoiceId: string): Promise<boolean> {

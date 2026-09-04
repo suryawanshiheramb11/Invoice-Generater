@@ -188,13 +188,28 @@ export interface Database {
       };
       submit_payment_proof: {
         Args: {
-          p_token: string;
+          p_invoice_id: string;
           p_storage_path: string;
           p_method: string;
           p_note?: string;
           p_partial?: boolean;
         };
         Returns: string;
+      };
+      get_public_invoice_summary: {
+        Args: { p_invoice_id: string };
+        Returns: {
+          invoice_number: string;
+          business_name: string | null;
+          customer_name: string | null;
+          status: string;
+          total: number;
+          currency: string;
+          due_date: string;
+          show_payment_info: boolean;
+          payment_instructions: string | null;
+          payment_info: Record<string, unknown> | null;
+        }[];
       };
     };
   };

@@ -1,4 +1,5 @@
 import { pdf } from "@react-pdf/renderer";
+import QRCode from "qrcode";
 import type { Invoice } from "@/types/invoice";
 import { InvoicePdfDocument } from "@/components/invoice/InvoicePdfDocument";
 import { toPngDataUrl } from "@/lib/rasterizeImage";
@@ -18,7 +19,17 @@ export async function generatePdfFile(invoice: Invoice, qrDataUrl: string | null
       pdfInvoice = { ...invoice, business: { ...invoice.business, logoUrl: pngLogo } };
     }
   }
-  const blob = await pdf(<InvoicePdfDocument invoice={pdfInvoice} qrDataUrl={qrDataUrl} />).toBlob();
+
+  // Every PDF (whether downloaded, shared via the native share sheet, or saved as a
+  // snapshot) embeds a permanent link back to /pay/[id] — otherwise a client who only
+  // ever receives the file itself has no way to pay or submit proof. Only possible once
+  // the invoice has been saved (has an id); a not-yet-saved draft simply omits it.
+  const payUrl = invoice.id && typeof window !== "undefined" ? `${window.location.origin}/pay/${invoice.id}` : null;
+  const payQrDataUrl = payUrl ? await QRCode.toDataURL(payUrl, { margin: 1, width: 160 }).catch(() => null) : null;
+
+  const blob = await pdf(
+    <InvoicePdfDocument invoice={pdfInvoice} qrDataUrl={qrDataUrl} payUrl={payUrl} payQrDataUrl={payQrDataUrl} />
+  ).toBlob();
   const filename = `${invoice.invoiceNumber || "invoice"}.pdf`;
   return new File([blob], filename, { type: "application/pdf" });
 }

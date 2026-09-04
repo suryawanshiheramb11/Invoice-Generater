@@ -13,11 +13,9 @@ import type { PaymentMethod } from "@/services/paymentProofs";
 const METHODS: PaymentMethod[] = ["upi", "bank_transfer", "cash", "card", "other"];
 
 export function PaymentProofForm({
-  token,
   invoiceId,
   initialStatus,
 }: {
-  token: string;
   invoiceId: string;
   initialStatus: string;
 }) {
@@ -38,7 +36,7 @@ export function PaymentProofForm({
     }
     setSubmitting(true);
     try {
-      await submitPaymentProof({ token, invoiceId, file, method, note, partial });
+      await submitPaymentProof({ invoiceId, file, method, note, partial });
       setStatus(partial ? "partially_paid" : "paid");
       setJustSubmitted(true);
       show("Thanks — payment recorded.", "success");

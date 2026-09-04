@@ -1,4 +1,4 @@
-import { Document, Page, View, Text, Image as PdfImage, StyleSheet, Font } from "@react-pdf/renderer";
+import { Document, Page, View, Text, Image as PdfImage, Link as PdfLink, StyleSheet, Font } from "@react-pdf/renderer";
 import type { Invoice } from "@/types/invoice";
 import { TEMPLATES } from "@/lib/templates";
 import { calculateInvoiceTotals, itemFinalAmount } from "@/lib/calculations";
@@ -46,15 +46,29 @@ const styles = StyleSheet.create({
   notesSection: { flexDirection: "row", justifyContent: "space-between", marginTop: 24 },
   notesBlock: { width: "48%" },
   paymentBlock: { marginTop: 24, borderWidth: 0.5, borderColor: "#e5e5e5", borderRadius: 4, padding: 12, flexDirection: "row", justifyContent: "space-between" },
+  payBlock: { marginTop: 12, borderWidth: 0.5, borderRadius: 4, padding: 12, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  payButtonText: { fontSize: 10, fontWeight: 700, color: "#ffffff" },
+  payHintText: { fontSize: 8, marginTop: 2 },
   footer: { position: "absolute", bottom: 24, left: 0, right: 0, textAlign: "center", fontSize: 8, color: "#aaaaaa" },
   qr: { width: 64, height: 64 },
+  payQr: { width: 56, height: 56 },
 });
 
 function addr(a: { addressLine: string; city: string; state: string; country: string; postalCode: string }) {
   return [a.addressLine, [a.city, a.state, a.postalCode].filter(Boolean).join(", "), a.country].filter(Boolean);
 }
 
-export function InvoicePdfDocument({ invoice, qrDataUrl }: { invoice: Invoice; qrDataUrl?: string | null }) {
+export function InvoicePdfDocument({
+  invoice,
+  qrDataUrl,
+  payUrl,
+  payQrDataUrl,
+}: {
+  invoice: Invoice;
+  qrDataUrl?: string | null;
+  payUrl?: string | null;
+  payQrDataUrl?: string | null;
+}) {
   const style = TEMPLATES[invoice.template];
   const accent = invoice.customization.accentColor || style.defaultAccent;
   const totals = calculateInvoiceTotals(invoice);
@@ -236,6 +250,16 @@ export function InvoicePdfDocument({ invoice, qrDataUrl }: { invoice: Invoice; q
             </View>
             {qrDataUrl && <PdfImage src={qrDataUrl} style={styles.qr} />}
           </View>
+        )}
+
+        {payUrl && (
+          <PdfLink src={payUrl} style={{ ...styles.payBlock, borderColor: accent, backgroundColor: accent }} wrap={false}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.payButtonText}>Pay this invoice online / Submit payment proof</Text>
+              <Text style={{ ...styles.payHintText, color: "#ffffff" }}>{payUrl}</Text>
+            </View>
+            {payQrDataUrl && <PdfImage src={payQrDataUrl} style={styles.payQr} />}
+          </PdfLink>
         )}
 
         <Text style={styles.footer} fixed>

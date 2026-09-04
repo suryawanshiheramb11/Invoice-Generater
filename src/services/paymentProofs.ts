@@ -88,8 +88,10 @@ export async function deletePaymentProof(id: string, storagePath: string | null)
 
 /**
  * Client-side (unauthenticated): uploads a payment screenshot/receipt and marks the
- * invoice paid. The share token is the only credential — anyone holding the /share/[token]
- * link is treated as the invoice's recipient, same as for viewing the PDF itself.
+ * invoice paid. The invoice id is the only credential — it's unguessable and already
+ * the trust boundary for the payment-proofs storage bucket (see migration 0006), so
+ * anyone holding it (via the PDF, /pay/[id], or a /share/[token] link) is treated as
+ * the invoice's recipient, same as for viewing the PDF itself.
  *
  * After the proof is recorded, this kicks off the local-OCR verification check
  * (step 1 of 2 — the owner still always reviews manually) in the background. That
@@ -98,14 +100,13 @@ export async function deletePaymentProof(id: string, storagePath: string | null)
  * from the dashboard, so nothing about payment status depends on it succeeding.
  */
 export async function submitPaymentProof(params: {
-  token: string;
   invoiceId: string;
   file: File;
   method: PaymentMethod;
   note: string;
   partial: boolean;
 }): Promise<void> {
-  const { token, invoiceId, file, method, note, partial } = params;
+  const { invoiceId, file, method, note, partial } = params;
 
   if (!ALLOWED_TYPES.includes(file.type)) {
     throw new ServiceError("Proof must be a PNG, JPEG, WebP image, or PDF.");
@@ -124,7 +125,7 @@ export async function submitPaymentProof(params: {
   if (uploadError) throw new ServiceError(uploadError.message);
 
   const { data: proofId, error } = await supabase.rpc("submit_payment_proof", {
-    p_token: token,
+    p_invoice_id: invoiceId,
     p_storage_path: path,
     p_method: method,
     p_note: note,
@@ -139,7 +140,7 @@ export async function submitPaymentProof(params: {
     fetch(`/api/payment-proofs/${proofId}/verify`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token }),
+      body: JSON.stringify({ invoiceId }),
     }).catch(() => {});
   }
 }

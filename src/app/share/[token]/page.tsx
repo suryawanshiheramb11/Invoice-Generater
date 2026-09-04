@@ -44,7 +44,7 @@ export default async function SharedInvoicePage({ params }: { params: Promise<{ 
       </a>
 
       {result.invoice_id && (
-        <PaymentProofForm token={token} invoiceId={result.invoice_id} initialStatus={result.invoice_status ?? "sent"} />
+        <PaymentProofForm invoiceId={result.invoice_id} initialStatus={result.invoice_status ?? "sent"} />
       )}
 
       <p className="mt-10 text-xs text-muted">
