@@ -1,7 +1,6 @@
 import { createClient } from "@/lib/supabase/client";
 import { invoiceToRow, rowToInvoice } from "@/lib/mapInvoice";
 import type { Invoice, InvoiceStatus } from "@/types/invoice";
-import { calculateInvoiceTotals } from "@/lib/calculations";
 import { generateItemId } from "@/lib/calculations";
 
 export class ServiceError extends Error {}
@@ -38,36 +37,17 @@ export async function saveInvoice(invoice: Invoice): Promise<Invoice> {
 
   if (error) throw new ServiceError(error.message);
 
-  await syncInvoiceItems(data.id, invoice);
+  // invoice_items used to be fully deleted and reinserted here on every save — but nothing
+  // in the app ever reads that table; line items live entirely in the invoices.invoice_data
+  // jsonb column (see rowToInvoice below). That made it a pure write-only shadow copy,
+  // rewritten wholesale on every autosave (a delete + insert round trip, regardless of how
+  // many items actually changed) for no functional benefit — the single largest source of
+  // query volume against this database. Removed rather than "optimized": there was nothing
+  // here worth keeping. If a real use for a queryable per-item table shows up later (e.g.
+  // per-item reporting), it should be resynced deliberately for that purpose, not as a
+  // silent side effect of every save.
 
   return rowToInvoice(data);
-}
-
-async function syncInvoiceItems(invoiceId: string, invoice: Invoice) {
-  const supabase = createClient();
-  const { error: deleteError } = await supabase.from("invoice_items").delete().eq("invoice_id", invoiceId);
-  if (deleteError) throw new ServiceError(deleteError.message);
-  if (invoice.items.length === 0) return;
-
-  // Item ids here are app-local (not UUIDs) and rows are fully replaced on every save,
-  // so `id` is deliberately omitted rather than set to `undefined` — a key present with
-  // an `undefined` value still gets included in the PostgREST `columns` list and causes
-  // a 400 (declared column with no value in the request body).
-  const rows = invoice.items.map((item) => {
-    const amount = calculateInvoiceTotals({ ...invoice, items: [item] }).total;
-    return {
-      invoice_id: invoiceId,
-      description: item.name ? `${item.name}${item.description ? " — " + item.description : ""}` : item.description,
-      quantity: item.quantity,
-      rate: item.rate,
-      tax_rate: item.taxRate,
-      discount: item.discountValue,
-      amount,
-    };
-  });
-
-  const { error: insertError } = await supabase.from("invoice_items").insert(rows);
-  if (insertError) throw new ServiceError(insertError.message);
 }
 
 export async function listInvoices(): Promise<Invoice[]> {

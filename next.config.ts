@@ -45,6 +45,19 @@ const nextConfig: NextConfig = {
   // at runtime — bundling it (the default) breaks that resolution under both webpack and
   // Turbopack. Keeping it external makes Node require() it normally instead.
   serverExternalPackages: ["tesseract.js"],
+  // Vercel's output file tracer only follows static `require()`/`import` calls to decide
+  // what ships in the deployed function — it can't see that createWorker() loads
+  // worker-script/node/index.js via a runtime string path (workerPath) handed to
+  // worker_threads. Without this, that file (and the .wasm cores it pulls in) is silently
+  // missing in production: the worker never starts, its promise never settles, and the
+  // request hangs until Vercel kills it (FUNCTION_INVOCATION_TIMEOUT) — this is exactly
+  // what was happening to every payment-proof OCR check.
+  outputFileTracingIncludes: {
+    "/api/payment-proofs/[id]/verify": [
+      "./node_modules/tesseract.js/src/worker-script/**/*",
+      "./node_modules/tesseract.js-core/**/*",
+    ],
+  },
   async headers() {
     return [
       {
