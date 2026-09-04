@@ -53,7 +53,10 @@ const nextConfig: NextConfig = {
   // request hangs until Vercel kills it (FUNCTION_INVOCATION_TIMEOUT) — this is exactly
   // what was happening to every payment-proof OCR check.
   outputFileTracingIncludes: {
-    "/api/payment-proofs/[id]/verify": [
+    // The key is matched as a glob against the route path (via picomatch) — a literal
+    // "[id]" there is glob syntax for a one-character class, not the route segment, and
+    // silently matches nothing. "**" sidesteps that instead of escaping the brackets.
+    "/api/payment-proofs/**/verify": [
       "./node_modules/tesseract.js/src/worker-script/**/*",
       "./node_modules/tesseract.js-core/**/*",
     ],
