@@ -52,10 +52,12 @@ grant execute on function public.get_public_invoice_summary(uuid) to anon, authe
 -- Payment proof submission now keys off invoice_id directly instead of a share_token, so
 -- it works from the permanent /pay/[id] page as well as the expiring /share/[token] one
 -- (which already exposes invoice_id from get_pdf_export_by_token). Return type is
--- unchanged (uuid), but the parameter list changes, so drop + recreate.
+-- unchanged (uuid), but the parameter list changes, so drop the old text-token overload and
+-- use create or replace (rather than plain create) for the new one — idempotent in case this
+-- migration is ever re-run after a partial apply.
 drop function if exists public.submit_payment_proof(text, text, text, text, boolean);
 
-create function public.submit_payment_proof(
+create or replace function public.submit_payment_proof(
   p_invoice_id uuid,
   p_storage_path text,
   p_method text,
