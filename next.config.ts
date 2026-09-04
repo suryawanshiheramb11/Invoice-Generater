@@ -41,6 +41,10 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   devIndicators: false,
+  // tesseract.js resolves its worker-script path relative to its own package directory
+  // at runtime — bundling it (the default) breaks that resolution under both webpack and
+  // Turbopack. Keeping it external makes Node require() it normally instead.
+  serverExternalPackages: ["tesseract.js"],
   async headers() {
     return [
       {

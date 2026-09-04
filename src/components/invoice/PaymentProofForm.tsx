@@ -87,7 +87,9 @@ export function PaymentProofForm({
     <div className="mt-8 rounded-2xl bg-[#F9FBF9] px-5 py-5 text-left">
       {status === "partially_paid" && (
         <p className="mb-3 rounded-xl bg-warning-soft px-3 py-2 text-xs font-bold text-warning">
-          A partial payment is already on record. Remaining balance: {formatMoney(remainingBalance, currency)}.
+          {justSubmitted
+            ? "Thanks — that's on record and awaiting the sender's confirmation. The remaining balance below will update once they confirm it."
+            : `A partial payment is on record. Confirmed remaining balance: ${formatMoney(remainingBalance, currency)}.`}
         </p>
       )}
       <p className="mb-3 text-sm font-bold text-foreground">Already paid (or paying an advance)? Let the sender know</p>
