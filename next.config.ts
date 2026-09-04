@@ -65,6 +65,8 @@ const nextConfig: NextConfig = {
       // getCore.js's require('wasm-feature-detect') isn't resolved by the tracer on its
       // own (an exports-map-only package) even once getCore.js itself is included.
       "./node_modules/wasm-feature-detect/**/*",
+      // setImage.js's top-level require('bmp-js') runs on every recognize() call.
+      "./node_modules/bmp-js/**/*",
     ],
   },
   async headers() {
