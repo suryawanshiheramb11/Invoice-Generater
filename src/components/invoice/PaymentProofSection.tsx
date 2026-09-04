@@ -3,14 +3,17 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { AlertTriangle, Check, ExternalLink, Loader2, Lock, RefreshCw, Trash2, X } from "lucide-react";
-import type { Invoice, InvoiceStatus } from "@/types/invoice";
+import type { CurrencyCode, Invoice, InvoiceStatus } from "@/types/invoice";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Card";
-import { Field, Select, Textarea, Checkbox } from "@/components/ui/Field";
+import { Field, Select, Textarea, Input } from "@/components/ui/Field";
 import { useToast } from "@/components/ui/Toast";
 import { friendlyErrorMessage } from "@/lib/errors";
 import { displayStatus, STATUS_LABELS, STATUS_TONE } from "@/lib/invoiceStatus";
 import { formatDate } from "@/lib/dates";
+import { formatMoney } from "@/lib/money";
+import { calculateInvoiceTotals } from "@/lib/calculations";
+import { remainingBalance } from "@/lib/paymentBalance";
 import { updateInvoiceStatus } from "@/services/invoices";
 import {
   listPaymentProofs,
@@ -102,7 +105,16 @@ export function PaymentProofSection({ invoice }: { invoice: Invoice }) {
   async function handleDelete(proof: PaymentProof) {
     try {
       await deletePaymentProof(proof.id, proof.storagePath);
-      setProofs((prev) => prev.filter((p) => p.id !== proof.id));
+      const remainingProofs = proofs.filter((p) => p.id !== proof.id);
+      setProofs(remainingProofs);
+      // Never leave "Paid"/"Partially Paid" standing with zero proof behind it — revert to
+      // Sent if that was the last approved proof for this invoice.
+      const stillBacked = remainingProofs.some((p) => p.ownerStatus === "approved");
+      if (!stillBacked && (status === "paid" || status === "partially_paid") && invoice.id) {
+        await updateInvoiceStatus(invoice.id, "sent");
+        setStatus("sent");
+        show("Proof deleted — status reverted to Sent since nothing backs it up anymore.", "info");
+      }
     } catch (err) {
       show(friendlyErrorMessage(err), "error");
     }
@@ -165,6 +177,11 @@ export function PaymentProofSection({ invoice }: { invoice: Invoice }) {
   const hasPendingClientProof = proofs.some((p) => p.recordedBy === "client" && p.ownerStatus === "pending");
   const editable = !verified && !hasPendingClientProof;
   const displayed = displayStatus({ status, dueDate: invoice.dueDate });
+  const total = calculateInvoiceTotals(invoice).total;
+  const approvedAmount = proofs
+    .filter((p) => p.ownerStatus === "approved")
+    .reduce((sum, p) => sum + (p.amount ?? 0), 0);
+  const remaining = remainingBalance(status, total, approvedAmount);
 
   return (
     <div className="space-y-5">
@@ -202,6 +219,12 @@ export function PaymentProofSection({ invoice }: { invoice: Invoice }) {
           </div>
         )}
       </div>
+      {status === "partially_paid" && (
+        <div className="flex items-center justify-between gap-2 text-xs">
+          <span className="text-muted">Remaining balance</span>
+          <span className="font-bold text-foreground">{formatMoney(remaining, invoice.currency)}</span>
+        </div>
+      )}
       <p className="text-xs text-muted">
         When you save a shareable PDF link (above) and send it, the client can mark the invoice paid and attach a
         screenshot of the transfer, UPI confirmation, or receipt right from that page — no login needed on their end.
@@ -313,6 +336,8 @@ export function PaymentProofSection({ invoice }: { invoice: Invoice }) {
       ) : (
         <ManualPaymentForm
           invoiceId={invoice.id}
+          remainingBalance={remaining}
+          currency={invoice.currency}
           onRecorded={async (newStatus) => {
             setStatus(newStatus);
             await refresh();
@@ -323,19 +348,37 @@ export function PaymentProofSection({ invoice }: { invoice: Invoice }) {
   );
 }
 
-function ManualPaymentForm({ invoiceId, onRecorded }: { invoiceId: string; onRecorded: (status: InvoiceStatus) => void }) {
+function ManualPaymentForm({
+  invoiceId,
+  remainingBalance: remaining,
+  currency,
+  onRecorded,
+}: {
+  invoiceId: string;
+  remainingBalance: number;
+  currency: CurrencyCode;
+  onRecorded: (status: InvoiceStatus) => void;
+}) {
   const { show } = useToast();
   const [open, setOpen] = useState(false);
   const [method, setMethod] = useState<PaymentMethod>("cash");
   const [note, setNote] = useState("");
-  const [partial, setPartial] = useState(false);
+  const [amountInput, setAmountInput] = useState(() => (remaining > 0 ? String(remaining) : ""));
   const [submitting, setSubmitting] = useState(false);
+
+  const amount = parseFloat(amountInput);
+  const validAmount = Number.isFinite(amount) && amount > 0;
+  const partial = validAmount && amount < remaining - 0.01;
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    if (!validAmount) {
+      show("Enter how much was paid.", "error");
+      return;
+    }
     setSubmitting(true);
     try {
-      await recordManualPayment({ invoiceId, method, note, partial });
+      await recordManualPayment({ invoiceId, method, note, partial, amount });
       onRecorded(partial ? "partially_paid" : "paid");
       show("Payment recorded.", "success");
       setNote("");
@@ -359,8 +402,8 @@ function ManualPaymentForm({ invoiceId, onRecorded }: { invoiceId: string; onRec
     <form onSubmit={handleSubmit} className="space-y-3 rounded-2xl border-[1.6px] border-dashed border-border-strong p-3.5">
       <p className="text-xs font-bold text-foreground">Record a payment the client paid outside this app</p>
       <p className="text-xs text-muted">
-        For cash, or a bank transfer the client never logged themselves. Marks the invoice paid immediately — no OCR
-        check, since there&apos;s no proof file.
+        For cash, or a bank transfer the client never logged themselves — or an advance paid before you&apos;ve started
+        the work. Marks the invoice paid (or partially paid) immediately — no OCR check, since there&apos;s no proof file.
       </p>
       <Field label="How was it paid?" required>
         <Select value={method} onChange={(e) => setMethod(e.target.value as PaymentMethod)}>
@@ -371,16 +414,15 @@ function ManualPaymentForm({ invoiceId, onRecorded }: { invoiceId: string; onRec
           ))}
         </Select>
       </Field>
+      <Field label="Amount paid" required hint={`Remaining balance: ${formatMoney(remaining, currency)}. Enter less for an advance or partial payment.`}>
+        <Input type="number" min={0.01} max={remaining || undefined} step="0.01" value={amountInput} onChange={(e) => setAmountInput(e.target.value)} />
+      </Field>
       <Field label="Note (optional)">
         <Textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} placeholder="e.g. Cash received in person on delivery" />
       </Field>
-      <label className="flex items-center gap-2 text-xs font-medium text-muted">
-        <Checkbox checked={partial} onChange={(e) => setPartial(e.target.checked)} />
-        This is a partial payment
-      </label>
       <div className="flex gap-2">
         <Button type="submit" size="sm" loading={submitting}>
-          Mark as paid
+          {partial ? "Record partial payment" : "Mark as paid"}
         </Button>
         <Button type="button" size="sm" variant="ghost" onClick={() => setOpen(false)}>
           Cancel

@@ -2,6 +2,8 @@ import Link from "next/link";
 import { FileText, Download } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { PaymentProofForm } from "@/components/invoice/PaymentProofForm";
+import { remainingBalance } from "@/lib/paymentBalance";
+import type { CurrencyCode, InvoiceStatus } from "@/types/invoice";
 
 export default async function SharedInvoicePage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
@@ -25,6 +27,17 @@ export default async function SharedInvoicePage({ params }: { params: Promise<{ 
 
   const pdfUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/invoice-pdfs/${result.storage_path}`;
 
+  let remaining = 0;
+  let currency: CurrencyCode = "INR";
+  if (result.invoice_id) {
+    const { data: summaryRows } = await supabase.rpc("get_public_invoice_summary", { p_invoice_id: result.invoice_id });
+    const summary = summaryRows?.[0];
+    if (summary) {
+      currency = summary.currency as CurrencyCode;
+      remaining = remainingBalance(summary.status as InvoiceStatus, summary.total, summary.paid_amount ?? 0);
+    }
+  }
+
   return (
     <div className="mx-auto max-w-sm px-4 py-24 text-center">
       <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-accent-soft text-accent">
@@ -44,7 +57,12 @@ export default async function SharedInvoicePage({ params }: { params: Promise<{ 
       </a>
 
       {result.invoice_id && (
-        <PaymentProofForm invoiceId={result.invoice_id} initialStatus={result.invoice_status ?? "sent"} />
+        <PaymentProofForm
+          invoiceId={result.invoice_id}
+          initialStatus={result.invoice_status ?? "sent"}
+          remainingBalance={remaining}
+          currency={currency}
+        />
       )}
 
       <p className="mt-10 text-xs text-muted">
