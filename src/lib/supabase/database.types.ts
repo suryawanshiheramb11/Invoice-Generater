@@ -150,6 +150,7 @@ export interface Database {
           owner_status: string;
           owner_reviewed_at: string | null;
           high_priority: boolean;
+          amount: number | null;
         };
         Insert: Partial<Database["public"]["Tables"]["invoice_payment_proofs"]["Row"]> & {
           invoice_id: string;
@@ -193,6 +194,7 @@ export interface Database {
           p_method: string;
           p_note?: string;
           p_partial?: boolean;
+          p_amount?: number | null;
         };
         Returns: string;
       };
@@ -209,6 +211,7 @@ export interface Database {
           show_payment_info: boolean;
           payment_instructions: string | null;
           payment_info: Record<string, unknown> | null;
+          paid_amount: number;
         }[];
       };
     };

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
-import { AlertTriangle, Check, ExternalLink, Loader2, RefreshCw, Trash2, X } from "lucide-react";
+import { AlertTriangle, Check, ExternalLink, Loader2, Lock, RefreshCw, Trash2, X } from "lucide-react";
 import type { Invoice, InvoiceStatus } from "@/types/invoice";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Card";
@@ -11,6 +11,7 @@ import { useToast } from "@/components/ui/Toast";
 import { friendlyErrorMessage } from "@/lib/errors";
 import { displayStatus, STATUS_LABELS, STATUS_TONE } from "@/lib/invoiceStatus";
 import { formatDate } from "@/lib/dates";
+import { updateInvoiceStatus } from "@/services/invoices";
 import {
   listPaymentProofs,
   getPaymentProofUrl,
@@ -21,6 +22,13 @@ import {
   PAYMENT_METHOD_LABELS,
 } from "@/services/paymentProofs";
 import type { PaymentMethod, PaymentProof } from "@/services/paymentProofs";
+
+// Statuses an owner can manually pick from the dropdown below. Deliberately excludes
+// "paid"/"partially_paid" — claiming an invoice is paid must always be backed by an actual
+// proof (recorded via "Record a payment received offline", or a client submission the
+// owner approves), never a bare status flip with nothing to show for it. "overdue" is
+// excluded too — it's a derived display label (see displayStatus), never chosen directly.
+const EDITABLE_STATUSES: InvoiceStatus[] = ["draft", "sent", "cancelled"];
 
 const METHODS: PaymentMethod[] = ["cash", "bank_transfer", "upi", "card", "other"];
 
@@ -45,6 +53,7 @@ export function PaymentProofSection({ invoice }: { invoice: Invoice }) {
   const [loading, setLoading] = useState(!!invoice.id);
   const [openingId, setOpeningId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [statusSaving, setStatusSaving] = useState(false);
   const [status, setStatus] = useState<InvoiceStatus>(invoice.status);
   // Reset synchronously during render when the prop changes, rather than in an effect body
   // (see https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes).
@@ -118,7 +127,7 @@ export function PaymentProofSection({ invoice }: { invoice: Invoice }) {
       await reviewPaymentProof({ proofId: proof.id, invoiceId: invoice.id!, approve });
       await refresh();
       setStatus(approve ? status : "sent");
-      show(approve ? "Marked approved." : "Rejected — invoice reverted to Sent.", "success");
+      show(approve ? "Marked approved — status is now locked." : "Rejected — invoice reverted to Sent.", "success");
     } catch (err) {
       show(friendlyErrorMessage(err), "error");
     } finally {
@@ -126,22 +135,78 @@ export function PaymentProofSection({ invoice }: { invoice: Invoice }) {
     }
   }
 
+  async function handleStatusChange(newStatus: InvoiceStatus) {
+    if (!invoice.id || newStatus === status) return;
+    const previous = status;
+    setStatus(newStatus);
+    setStatusSaving(true);
+    try {
+      await updateInvoiceStatus(invoice.id, newStatus);
+      show("Status updated.", "success");
+    } catch (err) {
+      setStatus(previous);
+      show(friendlyErrorMessage(err), "error");
+    } finally {
+      setStatusSaving(false);
+    }
+  }
+
   if (!invoice.id) {
     return <p className="text-sm text-muted">Save the invoice first — payment proofs attach to a saved invoice.</p>;
   }
 
+  // Locked once a human (the owner, or the owner approving a client's proof) has
+  // confirmed payment — recordManualPayment and an approved review both set
+  // owner_status "approved".
+  const verified = proofs.some((p) => p.ownerStatus === "approved");
+  // A client's submission flips status to paid/partially_paid immediately, before any
+  // review — while that's outstanding, the right action is Approve/Reject below, not the
+  // free-form dropdown (which also can't express "paid" at all — see EDITABLE_STATUSES).
+  const hasPendingClientProof = proofs.some((p) => p.recordedBy === "client" && p.ownerStatus === "pending");
+  const editable = !verified && !hasPendingClientProof;
   const displayed = displayStatus({ status, dueDate: invoice.dueDate });
 
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs font-bold uppercase tracking-wide text-muted">Current status</p>
-        <Badge tone={STATUS_TONE[displayed]}>{STATUS_LABELS[displayed]}</Badge>
+        {editable ? (
+          <div className="flex items-center gap-1.5">
+            <Select
+              value={EDITABLE_STATUSES.includes(status) ? status : "sent"}
+              onChange={(e) => handleStatusChange(e.target.value as InvoiceStatus)}
+              disabled={statusSaving}
+              className="h-8 w-auto min-w-0 rounded-full px-3 text-xs"
+            >
+              {EDITABLE_STATUSES.map((s) => (
+                <option key={s} value={s}>
+                  {STATUS_LABELS[s]}
+                </option>
+              ))}
+            </Select>
+            {statusSaving && <Loader2 className="h-3 w-3 animate-spin text-muted" />}
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5">
+            <Badge tone={STATUS_TONE[displayed]}>{STATUS_LABELS[displayed]}</Badge>
+            {verified ? (
+              <span
+                className="flex items-center gap-1 text-[11px] font-bold text-muted"
+                title="Payment verified — reject or delete the approved proof below to unlock"
+              >
+                <Lock className="h-3 w-3" /> Locked
+              </span>
+            ) : (
+              <span className="text-[11px] font-bold text-muted">Awaiting your review below</span>
+            )}
+          </div>
+        )}
       </div>
       <p className="text-xs text-muted">
         When you save a shareable PDF link (above) and send it, the client can mark the invoice paid and attach a
         screenshot of the transfer, UPI confirmation, or receipt right from that page — no login needed on their end.
-        Every submitted proof is OCR-checked automatically, then still needs your approval below.
+        Every submitted proof is OCR-checked automatically, then still needs your approval below. The status stays
+        editable until you approve a proof (or record one yourself) — approving locks it in.
       </p>
 
       {loading ? (
@@ -238,13 +303,22 @@ export function PaymentProofSection({ invoice }: { invoice: Invoice }) {
         <p className="text-xs text-muted">No payment proof submitted yet.</p>
       )}
 
-      <ManualPaymentForm
-        invoiceId={invoice.id}
-        onRecorded={async (newStatus) => {
-          setStatus(newStatus);
-          await refresh();
-        }}
-      />
+      {verified ? (
+        <p className="text-xs text-muted">
+          Payment is verified and the status is locked. The submitted proof stays available above — reject it or
+          delete it to unlock the status again.
+        </p>
+      ) : hasPendingClientProof ? (
+        <p className="text-xs text-muted">Review the submitted proof above (Approve or Reject) before recording anything else.</p>
+      ) : (
+        <ManualPaymentForm
+          invoiceId={invoice.id}
+          onRecorded={async (newStatus) => {
+            setStatus(newStatus);
+            await refresh();
+          }}
+        />
+      )}
     </div>
   );
 }

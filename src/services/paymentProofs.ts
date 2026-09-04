@@ -25,6 +25,7 @@ export interface PaymentProof {
   aiNotes: string;
   ownerStatus: OwnerReviewStatus;
   highPriority: boolean;
+  amount: number | null;
 }
 
 const MAX_PROOF_BYTES = 10 * 1024 * 1024; // 10MB
@@ -42,6 +43,7 @@ function mapProof(row: {
   ai_notes: string;
   owner_status: string;
   high_priority: boolean;
+  amount: number | null;
 }): PaymentProof {
   return {
     id: row.id,
@@ -55,6 +57,7 @@ function mapProof(row: {
     aiNotes: row.ai_notes,
     ownerStatus: row.owner_status as OwnerReviewStatus,
     highPriority: row.high_priority,
+    amount: row.amount,
   };
 }
 
@@ -105,14 +108,18 @@ export async function submitPaymentProof(params: {
   method: PaymentMethod;
   note: string;
   partial: boolean;
+  amount: number;
 }): Promise<void> {
-  const { invoiceId, file, method, note, partial } = params;
+  const { invoiceId, file, method, note, partial, amount } = params;
 
   if (!ALLOWED_TYPES.includes(file.type)) {
     throw new ServiceError("Proof must be a PNG, JPEG, WebP image, or PDF.");
   }
   if (file.size > MAX_PROOF_BYTES) {
     throw new ServiceError("File must be smaller than 10MB.");
+  }
+  if (!(amount > 0)) {
+    throw new ServiceError("Enter how much you're paying.");
   }
 
   const supabase = createClient();
@@ -130,6 +137,7 @@ export async function submitPaymentProof(params: {
     p_method: method,
     p_note: note,
     p_partial: partial,
+    p_amount: amount,
   });
   if (error) {
     await supabase.storage.from("payment-proofs").remove([path]);
@@ -155,8 +163,10 @@ export async function recordManualPayment(params: {
   method: PaymentMethod;
   note: string;
   partial: boolean;
+  amount: number;
 }): Promise<void> {
-  const { invoiceId, method, note, partial } = params;
+  const { invoiceId, method, note, partial, amount } = params;
+  if (!(amount > 0)) throw new ServiceError("Enter how much was paid.");
   const supabase = createClient();
   const { error } = await supabase.from("invoice_payment_proofs").insert({
     invoice_id: invoiceId,
@@ -167,6 +177,7 @@ export async function recordManualPayment(params: {
     ai_status: "not_applicable",
     owner_status: "approved",
     owner_reviewed_at: new Date().toISOString(),
+    amount,
   });
   if (error) throw new ServiceError(error.message);
   await updateInvoiceStatus(invoiceId, partial ? "partially_paid" : "paid");
