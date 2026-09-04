@@ -57,7 +57,10 @@ const nextConfig: NextConfig = {
     // "[id]" there is glob syntax for a one-character class, not the route segment, and
     // silently matches nothing. "**" sidesteps that instead of escaping the brackets.
     "/api/payment-proofs/**/verify": [
-      "./node_modules/tesseract.js/src/worker-script/**/*",
+      // The whole package, not just worker-script/ — worker-script files themselves reach
+      // up into sibling dirs (e.g. utils/dump.js requires ../../constants/imageType), so a
+      // narrower glob just moves the MODULE_NOT_FOUND to the next untraced file.
+      "./node_modules/tesseract.js/src/**/*",
       "./node_modules/tesseract.js-core/**/*",
       // getCore.js's require('wasm-feature-detect') isn't resolved by the tracer on its
       // own (an exports-map-only package) even once getCore.js itself is included.
