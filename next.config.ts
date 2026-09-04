@@ -59,6 +59,9 @@ const nextConfig: NextConfig = {
     "/api/payment-proofs/**/verify": [
       "./node_modules/tesseract.js/src/worker-script/**/*",
       "./node_modules/tesseract.js-core/**/*",
+      // getCore.js's require('wasm-feature-detect') isn't resolved by the tracer on its
+      // own (an exports-map-only package) even once getCore.js itself is included.
+      "./node_modules/wasm-feature-detect/**/*",
     ],
   },
   async headers() {
