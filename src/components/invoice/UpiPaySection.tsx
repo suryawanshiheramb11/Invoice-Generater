@@ -6,11 +6,14 @@ import type { CurrencyCode } from "@/types/invoice";
 // for it, but only among apps that didn't already grab a more specific scheme) — the
 // named schemes below let the payer pick their app directly instead of trusting whatever
 // the OS resolves a bare `upi://` link to.
-const UPI_APPS: { key: string; label: string; buildUri: (params: string) => string }[] = [
+const UPI_APPS: { key: string; label: string; buildUri: (params: string) => string; wide?: boolean }[] = [
   { key: "gpay", label: "Google Pay", buildUri: (p) => `tez://upi/pay?${p}` },
   { key: "phonepe", label: "PhonePe", buildUri: (p) => `phonepe://pay?${p}` },
   { key: "paytm", label: "Paytm", buildUri: (p) => `paytmmp://pay?${p}` },
-  { key: "other", label: "Other UPI app", buildUri: (p) => `upi://pay?${p}` },
+  { key: "bhim", label: "BHIM", buildUri: (p) => `bhim://pay?${p}` },
+  { key: "amazonpay", label: "Amazon Pay", buildUri: (p) => `amazonpay://pay?${p}` },
+  { key: "cred", label: "CRED", buildUri: (p) => `credpay://upi/pay?${p}` },
+  { key: "other", label: "Other UPI app", buildUri: (p) => `upi://pay?${p}`, wide: true },
 ];
 
 /**
@@ -55,7 +58,7 @@ export async function UpiPaySection({
           <a
             key={app.key}
             href={app.buildUri(paramStr)}
-            className="inline-flex items-center justify-center gap-1.5 rounded-full bg-accent px-3 py-2.5 text-xs font-bold text-accent-foreground hover:bg-accent-hover"
+            className={`inline-flex items-center justify-center gap-1.5 rounded-full bg-accent px-3 py-2.5 text-xs font-bold text-accent-foreground hover:bg-accent-hover ${app.wide ? "col-span-2" : ""}`}
           >
             <Smartphone className="h-3.5 w-3.5" /> {app.label}
           </a>
