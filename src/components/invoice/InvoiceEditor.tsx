@@ -59,6 +59,9 @@ export function InvoiceEditor({ invoiceId, initialInvoice }: { invoiceId?: strin
   const lastSavedSignature = useRef<string | null>(initialInvoice ? invoiceSignature(initialInvoice) : null);
   // Guards the "build a blank invoice" effect below so it can only ever run once.
   const initializedInvoice = useRef(Boolean(initialInvoice));
+  // Signature of the untouched blank invoice, so a late-arriving guest draft can tell
+  // "nothing typed yet" from "don't clobber what's on screen".
+  const pristineSignature = useRef<string | null>(null);
   // Whether a save is currently in flight, so two overlapping upserts can't race.
   const saveInFlight = useRef(false);
 
@@ -89,53 +92,54 @@ export function InvoiceEditor({ invoiceId, initialInvoice }: { invoiceId?: strin
     return () => observer.disconnect();
   }, [editorReady]);
 
-  // Initialize a new invoice, exactly once. Guests resume their local draft if they have one.
+  // Step 1: paint the form immediately, with no network on the critical path.
   //
-  // The once-only guard is load-bearing, not an optimization. `user` is a fresh object on
-  // every Supabase auth event — and the client emits those on token refresh and when the
-  // tab regains focus, not just at sign-in. This effect used to re-run on each of them and
-  // call setInvoice(createEmptyInvoice(...)), wiping out everything typed so far. That's
-  // the "I was filling it in and my data vanished" bug: nothing had reloaded, an
-  // invisible background token refresh had reset the form.
+  // This used to await getNextInvoiceNumber() before rendering anything, which for a
+  // signed-in user meant three sequential Supabase round trips behind a spinner —
+  // useUser()'s getUser(), then getUser() *again* inside getNextInvoiceNumber(), then the
+  // next_invoice_number RPC. On a slow link that's seconds of blank page. The real number
+  // is a two-field detail; there's no reason to hold the whole editor hostage to it, so it
+  // starts as a local placeholder and gets patched in by step 2 below.
+  //
+  // The once-only guard is also load-bearing: `user` is a fresh object on every Supabase
+  // auth event (token refresh, tab refocus), and this effect re-running used to reset the
+  // whole invoice — the "my data vanished while typing" bug.
+  useEffect(() => {
+    if (invoiceId || initialInvoice || initializedInvoice.current) return;
+    initializedInvoice.current = true;
+    const fresh = createEmptyInvoice(`INV-${new Date().getFullYear()}-0001`);
+    if (templateParam && templateParam in TEMPLATES) fresh.template = templateParam;
+    pristineSignature.current = invoiceSignature(fresh);
+    setInvoice(fresh);
+  }, [invoiceId, initialInvoice, templateParam]);
+
+  // Step 2: once auth resolves, fill in the parts that genuinely needed the network.
+  // Keyed by user id so a token refresh (same id) doesn't redo the work, while an actual
+  // guest -> signed-in transition does: the guest placeholder number may already be taken
+  // on the account they just signed into, and would collide on (user_id, invoice_number).
+  const hydratedFor = useRef<string | null | undefined>(undefined);
   useEffect(() => {
     if (invoiceId || initialInvoice || userLoading) return;
-    if (initializedInvoice.current) return;
-    initializedInvoice.current = true;
-    let cancelled = false;
-    (async () => {
-      if (!user) {
-        const draft = loadDraft();
-        if (draft) {
-          if (!cancelled) setInvoice(draft);
-          return;
-        }
-      }
-      const number = await getNextInvoiceNumber().catch(() => `INV-${new Date().getFullYear()}-0001`);
-      const fresh = createEmptyInvoice(number);
-      if (templateParam && templateParam in TEMPLATES) fresh.template = templateParam;
-      if (!cancelled) setInvoice(fresh);
-    })();
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [invoiceId, userLoading, user]);
+    const key = user?.id ?? null;
+    if (hydratedFor.current === key) return;
+    const firstResolution = hydratedFor.current === undefined;
+    hydratedFor.current = key;
 
-  // A guest who signs in mid-draft keeps everything they typed; only the invoice number is
-  // reissued, because the guest placeholder ("INV-2026-0001") may already be taken on the
-  // account they just signed into and would collide on the unique (user_id, invoice_number).
-  const previousUserId = useRef<string | null>(null);
-  useEffect(() => {
-    if (userLoading) return;
-    const signedInNow = user?.id ?? null;
-    const wasSignedOut = previousUserId.current === null;
-    previousUserId.current = signedInNow;
-    if (!signedInNow || !wasSignedOut || invoiceId || !invoice || invoice.id) return;
+    if (!key) {
+      // Guests resume their local draft — but only over an untouched form, never on top of
+      // something they've already started typing.
+      if (!firstResolution) return;
+      const draft = loadDraft();
+      if (draft) {
+        setInvoice((prev) => (prev && invoiceSignature(prev) === pristineSignature.current ? draft : prev));
+      }
+      return;
+    }
+
     getNextInvoiceNumber()
       .then((number) => setInvoice((prev) => (prev && !prev.id ? { ...prev, invoiceNumber: number } : prev)))
       .catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, userLoading]);
+  }, [user, userLoading, invoiceId, initialInvoice]);
 
   // Pre-fill saved business profile once, for logged-in users starting a new invoice.
   useEffect(() => {
@@ -147,7 +151,10 @@ export function InvoiceEditor({ invoiceId, initialInvoice }: { invoiceId?: strin
     initializedProfile.current = true;
     getBusinessProfile()
       .then((profile) => {
-        if (profile) setInvoice((prev) => (prev ? { ...prev, business: profile } : prev));
+        // Re-check at apply time, not just at request time: the form is interactive while
+        // this is in flight now, so the user may have typed their own business details in
+        // the meantime — those win.
+        if (profile) setInvoice((prev) => (prev && !prev.business.name ? { ...prev, business: profile } : prev));
       })
       .catch(() => {});
   }, [user, invoiceId, invoice]);
@@ -312,7 +319,10 @@ export function InvoiceEditor({ invoiceId, initialInvoice }: { invoiceId?: strin
     }
   }
 
-  if (!invoice || userLoading) {
+  // Deliberately not gated on userLoading: the form is fully usable before we know who's
+  // signed in (that only decides where it saves), and waiting on the auth round trip here
+  // was the last thing keeping a spinner on screen for no good reason.
+  if (!invoice) {
     return (
       <div className="flex h-[60vh] items-center justify-center text-muted">
         <Loader2 className="h-5 w-5 animate-spin" />
@@ -330,8 +340,12 @@ export function InvoiceEditor({ invoiceId, initialInvoice }: { invoiceId?: strin
           <p className="mt-1.5 text-sm font-medium text-muted">
             {locked
               ? "Sent — locked to match what your client received."
-              : user
-                ? saving
+              : userLoading
+                ? // The form renders before auth resolves, so don't flash "editing as guest"
+                  // at someone who is in fact signed in.
+                  "Changes autosave once required fields are filled."
+                : user
+                  ? saving
                   ? "Saving…"
                   : lastSavedAt
                     ? `Saved at ${lastSavedAt.toLocaleTimeString()}`
