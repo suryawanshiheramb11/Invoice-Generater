@@ -1,4 +1,4 @@
--- Fixes a bug in 0006's payment_proofs_public_insert storage policy: its with_check
+vdk-- Fixes a bug in 0006's payment_proofs_public_insert storage policy: its with_check
 -- did `exists (select 1 from public.invoices where id = ...)` as a plain subquery, which
 -- runs under invoices' own RLS (owner-only, auth.uid() = user_id). An anonymous client
 -- has no auth.uid(), so that subquery always returned zero rows and every anonymous

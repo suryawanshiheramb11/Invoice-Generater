@@ -69,7 +69,11 @@ export function PaymentProofForm({
     }
   }
 
-  if (status === "paid") {
+  // "paid" is set the moment a client submits a claim — before the owner (or the OCR
+  // check) has confirmed anything, see submitPaymentProof's docstring. So this is only
+  // truly settled once remainingBalance (derived from owner-approved proofs) hits zero;
+  // otherwise it's a claim still awaiting confirmation, and the form below stays open.
+  if (status === "paid" && remainingBalance <= 0) {
     return (
       <div className="mt-8 flex flex-col items-center gap-2 rounded-2xl bg-success-soft px-5 py-6 text-center">
         <CheckCircle2 className="h-6 w-6 text-success" />
@@ -85,11 +89,13 @@ export function PaymentProofForm({
 
   return (
     <div className="mt-8 rounded-2xl bg-[#F9FBF9] px-5 py-5 text-left">
-      {status === "partially_paid" && (
+      {(status === "partially_paid" || status === "paid") && (
         <p className="mb-3 rounded-xl bg-warning-soft px-3 py-2 text-xs font-bold text-warning">
           {justSubmitted
-            ? "Thanks — that's on record and awaiting the sender's confirmation. The remaining balance below will update once they confirm it."
-            : `A partial payment is on record. Confirmed remaining balance: ${formatMoney(remainingBalance, currency)}.`}
+            ? "Thanks — that's on record and awaiting the sender's confirmation. The amount due below will update once they confirm it."
+            : status === "paid"
+              ? `A payment is on record but not yet confirmed by the sender. If it isn't approved, the amount due is ${formatMoney(remainingBalance, currency)}.`
+              : `A partial payment is on record. Confirmed remaining balance: ${formatMoney(remainingBalance, currency)}.`}
         </p>
       )}
       <p className="mb-3 text-sm font-bold text-foreground">Already paid (or paying an advance)? Let the sender know</p>

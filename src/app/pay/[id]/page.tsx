@@ -1,8 +1,8 @@
 import Link from "next/link";
-import QRCode from "qrcode";
-import { CreditCard, ExternalLink, Smartphone } from "lucide-react";
+import { CreditCard, ExternalLink } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { PaymentProofForm } from "@/components/invoice/PaymentProofForm";
+import { UpiPaySection } from "@/components/invoice/UpiPaySection";
 import { formatMoney } from "@/lib/money";
 import { formatDate } from "@/lib/dates";
 import { remainingBalance } from "@/lib/paymentBalance";
@@ -17,19 +17,6 @@ interface PaymentInfo {
   upiId?: string;
   paymentLink?: string;
   paypalEmail?: string;
-}
-
-/** Mirrors src/lib/upi.ts's buildUpiUri, inlined to avoid needing a full PaymentInfo object here. */
-function buildUpiPayUrl(upiId: string, payeeName: string, amount: number, invoiceNumber: string): string {
-  const params = new URLSearchParams();
-  params.set("pa", upiId);
-  params.set("pn", payeeName || "Payee");
-  params.set("tn", `Invoice ${invoiceNumber}`);
-  if (amount > 0) {
-    params.set("am", amount.toFixed(2));
-    params.set("cu", "INR");
-  }
-  return `upi://pay?${params.toString()}`;
 }
 
 /**
@@ -70,11 +57,7 @@ export default async function PayInvoicePage({ params }: { params: Promise<{ id:
     );
 
   const remaining = remainingBalance(result.status as InvoiceStatus, result.total, result.paid_amount ?? 0);
-  const upiPayUrl =
-    result.show_payment_info && paymentInfo.upiId && currency === "INR" && remaining > 0
-      ? buildUpiPayUrl(paymentInfo.upiId, result.business_name ?? "", remaining, result.invoice_number)
-      : null;
-  const upiQrDataUrl = upiPayUrl ? await QRCode.toDataURL(upiPayUrl, { margin: 1, width: 220 }).catch(() => null) : null;
+  const showUpi = result.show_payment_info && Boolean(paymentInfo.upiId) && currency === "INR" && remaining > 0;
 
   return (
     <div className="mx-auto max-w-sm px-4 py-24 text-center">
@@ -107,21 +90,14 @@ export default async function PayInvoicePage({ params }: { params: Promise<{ id:
         )}
       </div>
 
-      {upiPayUrl && (
-        <div className="mt-4 flex flex-col items-center gap-3 rounded-2xl border border-border px-5 py-5">
-          <p className="text-xs font-bold uppercase tracking-wide text-muted">Pay by UPI</p>
-          {upiQrDataUrl && (
-            // eslint-disable-next-line @next/next/no-img-element -- a data: URI, not an optimizable remote image
-            <img src={upiQrDataUrl} alt="UPI QR code" width={180} height={180} className="rounded-xl" />
-          )}
-          <a
-            href={upiPayUrl}
-            className="inline-flex items-center gap-1.5 rounded-full bg-accent px-5 py-2.5 text-sm font-bold text-accent-foreground hover:bg-accent-hover"
-          >
-            <Smartphone className="h-4 w-4" /> Open in UPI app
-          </a>
-          <p className="text-[11px] text-muted">On your phone, this opens GPay, PhonePe, Paytm, or your banking app. On desktop, scan the QR instead.</p>
-        </div>
+      {showUpi && (
+        <UpiPaySection
+          upiId={paymentInfo.upiId!}
+          payeeName={result.business_name ?? ""}
+          amount={remaining}
+          currency={currency}
+          invoiceNumber={result.invoice_number}
+        />
       )}
 
       {hasPaymentDetails && (

@@ -2,8 +2,14 @@ import Link from "next/link";
 import { FileText, Download } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { PaymentProofForm } from "@/components/invoice/PaymentProofForm";
+import { UpiPaySection } from "@/components/invoice/UpiPaySection";
+import { formatMoney } from "@/lib/money";
 import { remainingBalance } from "@/lib/paymentBalance";
 import type { CurrencyCode, InvoiceStatus } from "@/types/invoice";
+
+interface SummaryPaymentInfo {
+  upiId?: string;
+}
 
 export default async function SharedInvoicePage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
@@ -29,12 +35,17 @@ export default async function SharedInvoicePage({ params }: { params: Promise<{ 
 
   let remaining = 0;
   let currency: CurrencyCode = "INR";
+  let showUpi = false;
+  let upiId = "";
   if (result.invoice_id) {
     const { data: summaryRows } = await supabase.rpc("get_public_invoice_summary", { p_invoice_id: result.invoice_id });
     const summary = summaryRows?.[0];
     if (summary) {
       currency = summary.currency as CurrencyCode;
       remaining = remainingBalance(summary.status as InvoiceStatus, summary.total, summary.paid_amount ?? 0);
+      const paymentInfo = (summary.payment_info ?? {}) as SummaryPaymentInfo;
+      showUpi = Boolean(summary.show_payment_info && paymentInfo.upiId && currency === "INR" && remaining > 0);
+      upiId = paymentInfo.upiId ?? "";
     }
   }
 
@@ -47,6 +58,16 @@ export default async function SharedInvoicePage({ params }: { params: Promise<{ 
         Invoice {result.invoice_number}
       </h1>
       {result.business_name && <p className="mt-1 text-sm text-muted">from {result.business_name}</p>}
+
+      {result.invoice_id && remaining > 0 && (
+        <div className="mt-6 flex items-baseline justify-between rounded-2xl bg-[#F9FBF9] px-5 py-5 text-left">
+          <span className="text-xs font-bold uppercase tracking-wide text-muted">
+            {result.invoice_status === "partially_paid" ? "Remaining balance" : "Amount due"}
+          </span>
+          <span className="font-display text-xl font-extrabold text-foreground">{formatMoney(remaining, currency)}</span>
+        </div>
+      )}
+
       <a
         href={pdfUrl}
         target="_blank"
@@ -55,6 +76,10 @@ export default async function SharedInvoicePage({ params }: { params: Promise<{ 
       >
         <Download className="h-4 w-4" /> Download PDF
       </a>
+
+      {showUpi && (
+        <UpiPaySection upiId={upiId} payeeName={result.business_name ?? ""} amount={remaining} currency={currency} invoiceNumber={result.invoice_number} />
+      )}
 
       {result.invoice_id && (
         <PaymentProofForm
