@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/client";
 import { ServiceError, updateInvoiceStatus } from "@/services/invoices";
+import type { InvoiceStatus } from "@/types/invoice";
 
 export type PaymentMethod = "upi" | "bank_transfer" | "cash" | "card" | "other";
 export type AiVerificationStatus = "pending" | "match" | "mismatch" | "error" | "not_applicable";
@@ -154,9 +155,39 @@ export async function submitPaymentProof(params: {
 }
 
 /**
+ * Recomputes and persists invoice status from every *approved* proof's amount vs. the
+ * invoice's total, rather than trusting whatever single record just changed. An invoice
+ * can be settled by a mix of proofs — e.g. a manually-recorded cash payment plus a
+ * separately client-submitted, later-approved UPI proof — so approving, rejecting, or
+ * deleting any one of several proofs must recompute from the full set, not assume it's
+ * the only one in play (that used to leave status stuck at "partially_paid" forever once
+ * the last of several approvals completed the total, or wiped a still-partially-backed
+ * invoice back to "sent" on rejecting just one of two approved proofs).
+ * Returns the status it settled on, so callers can update local state without a refetch.
+ */
+export async function syncPaymentStatus(invoiceId: string): Promise<InvoiceStatus> {
+  const supabase = createClient();
+  const [{ data: invoiceRow, error: invoiceError }, { data: proofRows, error: proofsError }] = await Promise.all([
+    supabase.from("invoices").select("total").eq("id", invoiceId).single(),
+    supabase.from("invoice_payment_proofs").select("amount").eq("invoice_id", invoiceId).eq("owner_status", "approved"),
+  ]);
+  if (invoiceError) throw new ServiceError(invoiceError.message);
+  if (proofsError) throw new ServiceError(proofsError.message);
+
+  const approvedAmount = (proofRows ?? []).reduce((sum, p) => sum + (p.amount ?? 0), 0);
+  const total = invoiceRow?.total ?? 0;
+  const newStatus: InvoiceStatus = approvedAmount <= 0 ? "sent" : approvedAmount >= total ? "paid" : "partially_paid";
+  await updateInvoiceStatus(invoiceId, newStatus);
+  return newStatus;
+}
+
+/**
  * Owner-side: records a payment that never went through the client form at all —
  * cash handed over in person, a bank transfer the client never bothered to log. There's
  * no file to OCR-check, so this is auto-approved (the owner is asserting it themselves).
+ * Status is recomputed from every approved proof afterwards (see syncPaymentStatus), so
+ * recording a second payment toward the same invoice — say $2000 cash after an already-
+ * approved $2000 UPI proof — correctly lands on "paid" rather than clobbering it.
  */
 export async function recordManualPayment(params: {
   invoiceId: string;
@@ -164,8 +195,8 @@ export async function recordManualPayment(params: {
   note: string;
   partial: boolean;
   amount: number;
-}): Promise<void> {
-  const { invoiceId, method, note, partial, amount } = params;
+}): Promise<InvoiceStatus> {
+  const { invoiceId, method, note, amount } = params;
   if (!(amount > 0)) throw new ServiceError("Enter how much was paid.");
   const supabase = createClient();
   const { error } = await supabase.from("invoice_payment_proofs").insert({
@@ -180,19 +211,20 @@ export async function recordManualPayment(params: {
     amount,
   });
   if (error) throw new ServiceError(error.message);
-  await updateInvoiceStatus(invoiceId, partial ? "partially_paid" : "paid");
+  return syncPaymentStatus(invoiceId);
 }
 
 /**
  * Owner-side: step 2 of the two-step verification — approve or reject a client-submitted
  * proof after (optionally) looking at the OCR result and the attached file themselves.
- * Rejecting reverts the invoice to "sent", since the payment it was based on didn't hold up.
+ * Status is recomputed from every approved proof afterwards (see syncPaymentStatus) rather
+ * than assuming this is the only proof backing the invoice.
  */
 export async function reviewPaymentProof(params: {
   proofId: string;
   invoiceId: string;
   approve: boolean;
-}): Promise<void> {
+}): Promise<InvoiceStatus> {
   const { proofId, invoiceId, approve } = params;
   const supabase = createClient();
   const { error } = await supabase
@@ -200,7 +232,7 @@ export async function reviewPaymentProof(params: {
     .update({ owner_status: approve ? "approved" : "rejected", owner_reviewed_at: new Date().toISOString() })
     .eq("id", proofId);
   if (error) throw new ServiceError(error.message);
-  if (!approve) await updateInvoiceStatus(invoiceId, "sent");
+  return syncPaymentStatus(invoiceId);
 }
 
 /** Owner-side: re-runs the local-OCR check on demand (e.g. it never ran, or errored out). */

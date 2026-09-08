@@ -22,6 +22,7 @@ import {
   recordManualPayment,
   reviewPaymentProof,
   rerunVerification,
+  syncPaymentStatus,
   PAYMENT_METHOD_LABELS,
 } from "@/services/paymentProofs";
 import type { PaymentMethod, PaymentProof } from "@/services/paymentProofs";
@@ -105,15 +106,21 @@ export function PaymentProofSection({ invoice }: { invoice: Invoice }) {
   async function handleDelete(proof: PaymentProof) {
     try {
       await deletePaymentProof(proof.id, proof.storagePath);
-      const remainingProofs = proofs.filter((p) => p.id !== proof.id);
-      setProofs(remainingProofs);
-      // Never leave "Paid"/"Partially Paid" standing with zero proof behind it — revert to
-      // Sent if that was the last approved proof for this invoice.
-      const stillBacked = remainingProofs.some((p) => p.ownerStatus === "approved");
-      if (!stillBacked && (status === "paid" || status === "partially_paid") && invoice.id) {
-        await updateInvoiceStatus(invoice.id, "sent");
-        setStatus("sent");
-        show("Proof deleted — status reverted to Sent since nothing backs it up anymore.", "info");
+      setProofs(proofs.filter((p) => p.id !== proof.id));
+      // Recompute from what's left rather than just checking "is anything still backed" —
+      // deleting one of two approved proofs (e.g. the cash leg of a cash+UPI payment)
+      // must drop status from "paid" down to "partially_paid", not leave it standing.
+      if (invoice.id && proof.ownerStatus === "approved") {
+        const newStatus = await syncPaymentStatus(invoice.id);
+        if (newStatus !== status) {
+          setStatus(newStatus);
+          show(
+            newStatus === "sent"
+              ? "Proof deleted — status reverted to Sent since nothing backs it up anymore."
+              : "Proof deleted — status updated to reflect what's still on record.",
+            "info"
+          );
+        }
       }
     } catch (err) {
       show(friendlyErrorMessage(err), "error");
@@ -136,10 +143,17 @@ export function PaymentProofSection({ invoice }: { invoice: Invoice }) {
   async function handleReview(proof: PaymentProof, approve: boolean) {
     setBusyId(proof.id);
     try {
-      await reviewPaymentProof({ proofId: proof.id, invoiceId: invoice.id!, approve });
+      const newStatus = await reviewPaymentProof({ proofId: proof.id, invoiceId: invoice.id!, approve });
       await refresh();
-      setStatus(approve ? status : "sent");
-      show(approve ? "Marked approved — status is now locked." : "Rejected — invoice reverted to Sent.", "success");
+      setStatus(newStatus);
+      show(
+        approve
+          ? newStatus === "paid"
+            ? "Approved — the invoice is now fully paid."
+            : "Approved — still awaiting the remaining balance."
+          : "Rejected.",
+        "success"
+      );
     } catch (err) {
       show(friendlyErrorMessage(err), "error");
     } finally {
@@ -167,9 +181,11 @@ export function PaymentProofSection({ invoice }: { invoice: Invoice }) {
     return <p className="text-sm text-muted">Save the invoice first — payment proofs attach to a saved invoice.</p>;
   }
 
-  // Locked once a human (the owner, or the owner approving a client's proof) has
-  // confirmed payment — recordManualPayment and an approved review both set
-  // owner_status "approved".
+  // Locked from free-form status edits once a human (the owner, or the owner approving a
+  // client's proof) has confirmed *any* payment — recordManualPayment and an approved
+  // review both set owner_status "approved". This deliberately fires on a partial
+  // approval too: once real money is on record, you shouldn't be able to flip the status
+  // back to draft/cancelled from the dropdown and lose track of it.
   const verified = proofs.some((p) => p.ownerStatus === "approved");
   // A client's submission flips status to paid/partially_paid immediately, before any
   // review — while that's outstanding, the right action is Approve/Reject below, not the
@@ -182,6 +198,10 @@ export function PaymentProofSection({ invoice }: { invoice: Invoice }) {
     .filter((p) => p.ownerStatus === "approved")
     .reduce((sum, p) => sum + (p.amount ?? 0), 0);
   const remaining = remainingBalance(status, total, approvedAmount);
+  // Separate from `verified` above: a $2000 cash payment approved against a $4000 total
+  // shouldn't block recording the other $2000 paid by UPI or card — only stop offering
+  // "record a payment" once approved proofs actually cover the full total.
+  const fullyPaid = verified && remaining <= 0;
 
   return (
     <div className="space-y-5">
@@ -209,7 +229,11 @@ export function PaymentProofSection({ invoice }: { invoice: Invoice }) {
             {verified ? (
               <span
                 className="flex items-center gap-1 text-[11px] font-bold text-muted"
-                title="Payment verified — reject or delete the approved proof below to unlock"
+                title={
+                  fullyPaid
+                    ? "Payment verified — reject or delete the approved proof below to unlock"
+                    : "A payment is on record — reject or delete it below to unlock the status dropdown. You can still record more payments toward the remaining balance below."
+                }
               >
                 <Lock className="h-3 w-3" /> Locked
               </span>
@@ -219,7 +243,7 @@ export function PaymentProofSection({ invoice }: { invoice: Invoice }) {
           </div>
         )}
       </div>
-      {status === "partially_paid" && (
+      {remaining > 0 && (
         <div className="flex items-center justify-between gap-2 text-xs">
           <span className="text-muted">Remaining balance</span>
           <span className="font-bold text-foreground">{formatMoney(remaining, invoice.currency)}</span>
@@ -326,7 +350,7 @@ export function PaymentProofSection({ invoice }: { invoice: Invoice }) {
         <p className="text-xs text-muted">No payment proof submitted yet.</p>
       )}
 
-      {verified ? (
+      {fullyPaid ? (
         <p className="text-xs text-muted">
           Payment is verified and the status is locked. The submitted proof stays available above — reject it or
           delete it to unlock the status again.
@@ -378,9 +402,9 @@ function ManualPaymentForm({
     }
     setSubmitting(true);
     try {
-      await recordManualPayment({ invoiceId, method, note, partial, amount });
-      onRecorded(partial ? "partially_paid" : "paid");
-      show("Payment recorded.", "success");
+      const newStatus = await recordManualPayment({ invoiceId, method, note, partial, amount });
+      onRecorded(newStatus);
+      show(newStatus === "paid" ? "Payment recorded — invoice is fully paid." : "Payment recorded.", "success");
       setNote("");
       setOpen(false);
     } catch (err) {
