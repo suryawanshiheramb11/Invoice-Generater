@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Download, Loader2, Printer, Save, Share2, Sparkles, Copy } from "lucide-react";
+import { Download, Loader2, Printer, Save, Share2, Copy } from "lucide-react";
 import type { Invoice, TemplateId } from "@/types/invoice";
 import { EditorSection } from "@/components/invoice/EditorSection";
 import { BusinessSection } from "@/components/invoice/BusinessSection";
@@ -22,7 +22,7 @@ import { useToast } from "@/components/ui/Toast";
 import { useUser } from "@/hooks/useUser";
 import { useDebouncedEffect } from "@/hooks/useDebouncedEffect";
 import { useQrDataUrl } from "@/hooks/useQrDataUrl";
-import { createDemoInvoice, createEmptyInvoice } from "@/lib/defaults";
+import { createEmptyInvoice } from "@/lib/defaults";
 import { TEMPLATES } from "@/lib/templates";
 import { saveDraft, loadDraft, clearDraft } from "@/lib/guestStorage";
 import { validateInvoice } from "@/lib/validation";
@@ -226,11 +226,6 @@ export function InvoiceEditor({ invoiceId, initialInvoice }: { invoiceId?: strin
     }
   }
 
-  function loadDemo() {
-    if (!invoice) return;
-    setInvoice(createDemoInvoice(invoice.invoiceNumber));
-  }
-
   if (!invoice || userLoading) {
     return (
       <div className="flex h-[60vh] items-center justify-center text-muted">
@@ -257,11 +252,6 @@ export function InvoiceEditor({ invoiceId, initialInvoice }: { invoiceId?: strin
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {!invoiceId && (
-            <Button variant="ghost" size="sm" onClick={loadDemo}>
-              <Sparkles className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Load demo data</span>
-            </Button>
-          )}
           {invoiceId && (
             <Button variant="outline" size="sm" onClick={handleDuplicate}>
               <Copy className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Duplicate</span>

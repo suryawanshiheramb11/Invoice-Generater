@@ -52,7 +52,7 @@ const faqJsonLd = {
 const steps = [
   {
     title: "Enter your details",
-    description: "Add your business info, customer details, and invoice items — or start from demo data.",
+    description: "Add your business info, customer details, and invoice items.",
   },
   {
     title: "Customize your invoice",
