@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
+import { compressImage } from "@/lib/imageCompression";
 import { ServiceError, updateInvoiceStatus } from "@/services/invoices";
 import type { InvoiceStatus } from "@/types/invoice";
 
@@ -133,8 +134,12 @@ export async function submitPaymentProof(params: {
   const extension = SAFE_EXTENSION.test(rawExtension) ? rawExtension : "jpg";
   const path = `${invoiceId}/${crypto.randomUUID()}.${extension}`;
 
-  const { error: uploadError } = await supabase.storage.from("payment-proofs").upload(path, file, {
-    contentType: file.type,
+  // PDFs pass through untouched; photos/screenshots get downscaled -- generous enough
+  // (2000px, 1.5MB) that the OCR verification step below still has legible text to read.
+  const uploadFile = file.type === "application/pdf" ? file : await compressImage(file, { maxSizeMB: 1.5, maxWidthOrHeight: 2000 });
+
+  const { error: uploadError } = await supabase.storage.from("payment-proofs").upload(path, uploadFile, {
+    contentType: uploadFile.type || file.type,
   });
   if (uploadError) throw new ServiceError(uploadError.message);
 

@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
+import { compressImage } from "@/lib/imageCompression";
 import { ServiceError } from "@/services/invoices";
 
 const MAX_LOGO_BYTES = 2 * 1024 * 1024; // 2MB
@@ -34,11 +35,17 @@ export async function uploadLogo(file: File): Promise<string> {
   const extension = SAFE_EXTENSION.test(rawExtension) ? rawExtension : "png";
   const path = `${user.id}/logo-${Date.now()}.${extension}`;
 
+  // Logos only ever render small (a 64px UI thumbnail, a corner of a PDF), so there's
+  // no reason to store a multi-megapixel phone photo at full size. Falls back to the
+  // original file if compression fails for any reason (e.g. an unusual image codec) --
+  // never block the upload on this being merely an optimization.
+  const uploadFile = await compressImage(file, { maxSizeMB: 0.3, maxWidthOrHeight: 1000 });
+
   // upsert is intentionally omitted: the path is already unique (Date.now()-based),
   // so there's never a real conflict to resolve, and Supabase Storage's upsert=true
   // path fails its own RLS insert check even for brand-new, non-conflicting objects.
-  const { error } = await supabase.storage.from("logos").upload(path, file, {
-    contentType: file.type,
+  const { error } = await supabase.storage.from("logos").upload(path, uploadFile, {
+    contentType: uploadFile.type || file.type,
   });
   if (error) throw new ServiceError(error.message);
 
