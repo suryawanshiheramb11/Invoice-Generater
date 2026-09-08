@@ -249,6 +249,12 @@ export function PaymentProofSection({ invoice }: { invoice: Invoice }) {
           <span className="font-bold text-foreground">{formatMoney(remaining, invoice.currency)}</span>
         </div>
       )}
+      {approvedAmount > 0 && (
+        <div className="flex items-center justify-between gap-2 text-xs">
+          <span className="text-muted">Paid so far</span>
+          <span className="font-bold text-success">{formatMoney(approvedAmount, invoice.currency)}</span>
+        </div>
+      )}
       <p className="text-xs text-muted">
         When you save a shareable PDF link (above) and send it, the client can mark the invoice paid and attach a
         screenshot of the transfer, UPI confirmation, or receipt right from that page — no login needed on their end.

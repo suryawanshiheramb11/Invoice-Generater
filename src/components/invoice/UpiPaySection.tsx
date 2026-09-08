@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { headers } from "next/headers";
 import QRCode from "qrcode";
 import type { CurrencyCode } from "@/types/invoice";
 
@@ -47,7 +48,7 @@ function TextBadge({ children, bg, fg }: { children: ReactNode; bg: string; fg: 
   );
 }
 
-const UPI_APPS: {
+type UpiAppEntry = {
   key: string;
   label: string;
   buildUri: (params: string) => string;
@@ -57,7 +58,14 @@ const UPI_APPS: {
   // a small brand mark alone (rendered aria-hidden), so the visible label carries the name.
   iconIsBadge?: boolean;
   wide?: boolean;
-}[] = [
+};
+
+/**
+ * `isAndroid` picks how the "Other UPI or banking app" entry is built — see its comment
+ * below. Everything else is identical regardless of platform.
+ */
+function getUpiApps(isAndroid: boolean): UpiAppEntry[] {
+  return [
   { key: "gpay", label: "Google Pay", buildUri: (p) => `tez://upi/pay?${p}`, icon: <GooglePayIcon /> },
   { key: "phonepe", label: "PhonePe", buildUri: (p) => `phonepe://pay?${p}`, icon: <PhonePeIcon /> },
   { key: "paytm", label: "Paytm", buildUri: (p) => `paytmmp://pay?${p}`, icon: <PaytmIcon /> },
@@ -94,21 +102,30 @@ const UPI_APPS: {
     ),
     iconIsBadge: true,
   },
-  // Not a specific app — invokes Android's own "open with" chooser via an explicit Intent
-  // URL rather than a bare `upi://` href. A bare custom-scheme link like `upi://pay?...`
-  // gets silently handed to whichever app the phone has set as its default UPI handler —
-  // on plenty of devices that's WhatsApp Pay, not the banking app or wallet the payer
-  // actually wanted. The `intent://` form asks Android to resolve the scheme itself
-  // (action=android.intent.action.VIEW, no package= pin), which is the standard way UPI
+  // Not a specific app. On Android, this invokes the OS's own "open with" chooser via an
+  // explicit Intent URL rather than a bare `upi://` href — a bare custom-scheme link like
+  // `upi://pay?...` gets silently handed to whichever app the phone has set as its default
+  // UPI handler (on plenty of devices that's WhatsApp Pay, not the banking app or wallet
+  // the payer actually wanted), whereas `intent://` asks Android to resolve the scheme
+  // itself (action=android.intent.action.VIEW, no package= pin) — the standard way UPI
   // payment gateways trigger the picker instead of a silent single-app launch.
+  //
+  // `intent://` is Android/Chrome-specific syntax, though — it is not a valid URI scheme
+  // anywhere else. Safari (iOS or macOS) can't parse the `#Intent;...;end` suffix at all
+  // and fails hard with "Safari cannot open the page because the address is invalid"
+  // rather than falling back gracefully. So iOS/desktop gets the plain `upi://pay` link
+  // instead — it won't produce Android's chooser, but at least it's a link a non-Android
+  // browser can actually attempt.
   {
     key: "other",
     label: "Other UPI or banking app",
-    buildUri: (p) => `intent://pay?${p}#Intent;scheme=upi;action=android.intent.action.VIEW;end`,
+    buildUri: (p) =>
+      isAndroid ? `intent://pay?${p}#Intent;scheme=upi;action=android.intent.action.VIEW;end` : `upi://pay?${p}`,
     icon: null,
     wide: true,
   },
-];
+  ];
+}
 
 /**
  * "Pay by UPI" block for the public payment pages (/pay/[id], /share/[token]): a QR code
@@ -148,6 +165,10 @@ export async function UpiPaySection({
   const paramStr = params.toString();
   const qrDataUrl = await QRCode.toDataURL(`upi://pay?${paramStr}`, { margin: 1, width: 220 }).catch(() => null);
 
+  const userAgent = (await headers()).get("user-agent") ?? "";
+  const isAndroid = /Android/i.test(userAgent);
+  const upiApps = getUpiApps(isAndroid);
+
   return (
     <div className="mt-4 flex flex-col items-center gap-3 rounded-2xl border border-border px-5 py-5">
       <p className="text-xs font-bold uppercase tracking-wide text-muted">Pay by UPI</p>
@@ -156,7 +177,7 @@ export async function UpiPaySection({
         <img src={qrDataUrl} alt="UPI QR code" width={180} height={180} className="rounded-xl" />
       )}
       <div className="grid w-full grid-cols-2 gap-2">
-        {UPI_APPS.map((app) => (
+        {upiApps.map((app) => (
           <a
             key={app.key}
             href={app.buildUri(paramStr)}

@@ -35,6 +35,11 @@ export function PaymentProofForm({
   const [file, setFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [justSubmitted, setJustSubmitted] = useState(false);
+  // Separate from `submitting` (which only blocks a rapid double-click): this collapses the
+  // form after a successful submit so it isn't left sitting there fully populated with the
+  // same file/amount, inviting a second, third, fourth... identical proof if the payer taps
+  // "Mark as paid" again wondering if the first tap worked. Re-opening it resets the fields.
+  const [formOpen, setFormOpen] = useState(true);
 
   const amount = parseFloat(amountInput);
   const validAmount = Number.isFinite(amount) && amount > 0;
@@ -61,6 +66,7 @@ export function PaymentProofForm({
       await submitPaymentProof({ invoiceId, file, method, note, partial, amount });
       setStatus(partial ? "partially_paid" : "paid");
       setJustSubmitted(true);
+      setFormOpen(false);
       show("Thanks — payment recorded.", "success");
     } catch (err) {
       show(friendlyErrorMessage(err), "error");
@@ -98,54 +104,72 @@ export function PaymentProofForm({
               : `A partial payment is on record. Confirmed remaining balance: ${formatMoney(remainingBalance, currency)}.`}
         </p>
       )}
-      <p className="mb-3 text-sm font-bold text-foreground">Already paid (or paying an advance)? Let the sender know</p>
-      <form onSubmit={handleSubmit} className="space-y-3">
-        <Field label="How did you pay?" required>
-          <Select value={method} onChange={(e) => setMethod(e.target.value as PaymentMethod)}>
-            {METHODS.map((m) => (
-              <option key={m} value={m}>
-                {PAYMENT_METHOD_LABELS[m]}
-              </option>
-            ))}
-          </Select>
-        </Field>
+      {formOpen ? (
+        <>
+          <p className="mb-3 text-sm font-bold text-foreground">Already paid (or paying an advance)? Let the sender know</p>
+          <form onSubmit={handleSubmit} className="space-y-3">
+            <Field label="How did you pay?" required>
+              <Select value={method} onChange={(e) => setMethod(e.target.value as PaymentMethod)}>
+                {METHODS.map((m) => (
+                  <option key={m} value={m}>
+                    {PAYMENT_METHOD_LABELS[m]}
+                  </option>
+                ))}
+              </Select>
+            </Field>
 
-        <Field
-          label="Amount you're paying"
-          required
-          hint={`Remaining balance: ${formatMoney(remainingBalance, currency)}. Pay less than the full amount for an advance or partial payment.`}
+            <Field
+              label="Amount you're paying"
+              required
+              hint={`Remaining balance: ${formatMoney(remainingBalance, currency)}. Pay less than the full amount for an advance or partial payment.`}
+            >
+              <Input
+                type="number"
+                min={0.01}
+                max={remainingBalance || undefined}
+                step="0.01"
+                value={amountInput}
+                onChange={(e) => setAmountInput(e.target.value)}
+              />
+            </Field>
+
+            <Field label="Proof of payment" required hint="Screenshot or photo of the transfer, UPI confirmation, or receipt. PNG, JPEG, WebP, or PDF, up to 10MB.">
+              <label className="flex h-11 w-full cursor-pointer items-center gap-2 rounded-2xl border-[1.6px] border-dashed border-border-strong bg-surface px-4 text-sm font-medium text-muted hover:border-accent">
+                <UploadCloud className="h-4 w-4 shrink-0" />
+                <span className="truncate">{file ? file.name : "Choose a file…"}</span>
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,application/pdf"
+                  className="hidden"
+                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                />
+              </label>
+            </Field>
+
+            <Field label="Note (optional)">
+              <Textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} placeholder="e.g. Paid via GPay, ref #123456" />
+            </Field>
+
+            <Button type="submit" className="w-full" loading={submitting}>
+              {partial ? "Submit partial payment" : "Mark as paid"}
+            </Button>
+          </form>
+        </>
+      ) : (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            setFile(null);
+            setNote("");
+            setAmountInput(remainingBalance > 0 ? String(remainingBalance) : "");
+            setFormOpen(true);
+          }}
         >
-          <Input
-            type="number"
-            min={0.01}
-            max={remainingBalance || undefined}
-            step="0.01"
-            value={amountInput}
-            onChange={(e) => setAmountInput(e.target.value)}
-          />
-        </Field>
-
-        <Field label="Proof of payment" required hint="Screenshot or photo of the transfer, UPI confirmation, or receipt. PNG, JPEG, WebP, or PDF, up to 10MB.">
-          <label className="flex h-11 w-full cursor-pointer items-center gap-2 rounded-2xl border-[1.6px] border-dashed border-border-strong bg-surface px-4 text-sm font-medium text-muted hover:border-accent">
-            <UploadCloud className="h-4 w-4 shrink-0" />
-            <span className="truncate">{file ? file.name : "Choose a file…"}</span>
-            <input
-              type="file"
-              accept="image/png,image/jpeg,image/webp,application/pdf"
-              className="hidden"
-              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-            />
-          </label>
-        </Field>
-
-        <Field label="Note (optional)">
-          <Textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} placeholder="e.g. Paid via GPay, ref #123456" />
-        </Field>
-
-        <Button type="submit" className="w-full" loading={submitting}>
-          {partial ? "Submit partial payment" : "Mark as paid"}
+          Record another payment
         </Button>
-      </form>
+      )}
     </div>
   );
 }

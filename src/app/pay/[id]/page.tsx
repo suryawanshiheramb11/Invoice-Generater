@@ -56,7 +56,8 @@ export default async function PayInvoicePage({ params }: { params: Promise<{ id:
         paymentInfo.paymentLink
     );
 
-  const remaining = remainingBalance(result.status as InvoiceStatus, result.total, result.paid_amount ?? 0);
+  const paidAmount = result.paid_amount ?? 0;
+  const remaining = remainingBalance(result.status as InvoiceStatus, result.total, paidAmount);
   const showUpi = result.show_payment_info && Boolean(paymentInfo.upiId) && currency === "INR" && remaining > 0;
 
   return (
@@ -76,11 +77,17 @@ export default async function PayInvoicePage({ params }: { params: Promise<{ id:
           </span>
           <span className="font-display text-xl font-extrabold text-foreground">{formatMoney(remaining, currency)}</span>
         </div>
-        {result.status === "partially_paid" && (
-          <div className="mt-1 flex items-baseline justify-between">
-            <span className="text-xs text-muted">Invoice total</span>
-            <span className="text-xs text-muted">{formatMoney(result.total, currency)}</span>
-          </div>
+        {paidAmount > 0 && (
+          <>
+            <div className="mt-1 flex items-baseline justify-between">
+              <span className="text-xs text-muted">Invoice total</span>
+              <span className="text-xs text-muted">{formatMoney(result.total, currency)}</span>
+            </div>
+            <div className="mt-1 flex items-baseline justify-between">
+              <span className="text-xs text-muted">Paid so far</span>
+              <span className="text-xs font-bold text-success">{formatMoney(paidAmount, currency)}</span>
+            </div>
+          </>
         )}
         {result.due_date && (
           <div className="mt-1 flex items-baseline justify-between">

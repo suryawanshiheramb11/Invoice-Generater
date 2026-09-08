@@ -34,6 +34,8 @@ export default async function SharedInvoicePage({ params }: { params: Promise<{ 
   const pdfUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/invoice-pdfs/${result.storage_path}`;
 
   let remaining = 0;
+  let paidAmount = 0;
+  let total = 0;
   let currency: CurrencyCode = "INR";
   let showUpi = false;
   let upiId = "";
@@ -42,7 +44,9 @@ export default async function SharedInvoicePage({ params }: { params: Promise<{ 
     const summary = summaryRows?.[0];
     if (summary) {
       currency = summary.currency as CurrencyCode;
-      remaining = remainingBalance(summary.status as InvoiceStatus, summary.total, summary.paid_amount ?? 0);
+      total = summary.total;
+      paidAmount = summary.paid_amount ?? 0;
+      remaining = remainingBalance(summary.status as InvoiceStatus, summary.total, paidAmount);
       const paymentInfo = (summary.payment_info ?? {}) as SummaryPaymentInfo;
       showUpi = Boolean(summary.show_payment_info && paymentInfo.upiId && currency === "INR" && remaining > 0);
       upiId = paymentInfo.upiId ?? "";
@@ -59,12 +63,28 @@ export default async function SharedInvoicePage({ params }: { params: Promise<{ 
       </h1>
       {result.business_name && <p className="mt-1 text-sm text-muted">from {result.business_name}</p>}
 
-      {result.invoice_id && remaining > 0 && (
-        <div className="mt-6 flex items-baseline justify-between rounded-2xl bg-[#F9FBF9] px-5 py-5 text-left">
-          <span className="text-xs font-bold uppercase tracking-wide text-muted">
-            {result.invoice_status === "partially_paid" ? "Remaining balance" : "Amount due"}
-          </span>
-          <span className="font-display text-xl font-extrabold text-foreground">{formatMoney(remaining, currency)}</span>
+      {result.invoice_id && (remaining > 0 || paidAmount > 0) && (
+        <div className="mt-6 rounded-2xl bg-[#F9FBF9] px-5 py-5 text-left">
+          {remaining > 0 && (
+            <div className="flex items-baseline justify-between">
+              <span className="text-xs font-bold uppercase tracking-wide text-muted">
+                {result.invoice_status === "partially_paid" ? "Remaining balance" : "Amount due"}
+              </span>
+              <span className="font-display text-xl font-extrabold text-foreground">{formatMoney(remaining, currency)}</span>
+            </div>
+          )}
+          {paidAmount > 0 && (
+            <>
+              <div className="mt-1 flex items-baseline justify-between">
+                <span className="text-xs text-muted">Invoice total</span>
+                <span className="text-xs text-muted">{formatMoney(total, currency)}</span>
+              </div>
+              <div className="mt-1 flex items-baseline justify-between">
+                <span className="text-xs text-muted">Paid so far</span>
+                <span className="text-xs font-bold text-success">{formatMoney(paidAmount, currency)}</span>
+              </div>
+            </>
+          )}
         </div>
       )}
 
