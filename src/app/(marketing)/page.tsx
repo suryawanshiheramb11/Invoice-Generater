@@ -75,11 +75,21 @@ const features = [
   { icon: Users, title: "Customer management", description: "Save customers once, reuse them on every invoice." },
 ];
 
+/**
+ * JSON inside a <script> block ends at the first literal "</script>", not at the closing
+ * brace — so a "<" in any value would break out of the tag. Today both payloads are built
+ * from constants in this repo, but escaping it costs nothing and means the day someone
+ * feeds user-supplied copy into structured data, it isn't an injection.
+ */
+function jsonLd(value: unknown): string {
+  return JSON.stringify(value).replace(/</g, "\\u003c");
+}
+
 export default function Home() {
   return (
     <div>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareAppJsonLd) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(softwareAppJsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(faqJsonLd) }} />
       {/* Hero */}
       <section className="bg-surface">
         <div className="mx-auto max-w-5xl px-4 py-20 text-center sm:px-6 sm:py-28 lg:px-8">

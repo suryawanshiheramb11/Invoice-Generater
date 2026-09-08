@@ -13,7 +13,7 @@ export function PaymentInfoSection({ paymentInfo, onChange }: Props) {
     <div className="space-y-4">
       <p className="text-xs text-muted">All fields are optional. Payment processing is not required to create an invoice.</p>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Field label="Bank Name">
           <Input value={paymentInfo.bankName} onChange={(e) => onChange({ bankName: e.target.value })} />
         </Field>

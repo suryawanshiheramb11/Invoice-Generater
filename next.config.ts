@@ -75,6 +75,17 @@ const nextConfig: NextConfig = {
         source: "/:path*",
         headers: securityHeaders,
       },
+      {
+        // The two unauthenticated pages that render an amount owed plus (when the owner
+        // opted in) their bank/UPI details. Nothing between the origin and the payer —
+        // CDN, corporate proxy, browser back/forward cache — should be holding a copy,
+        // and no crawler that reaches one should index it.
+        source: "/:route(pay|share)/:path*",
+        headers: [
+          { key: "Cache-Control", value: "no-store, no-cache, must-revalidate, private" },
+          { key: "X-Robots-Tag", value: "noindex, nofollow, noarchive" },
+        ],
+      },
     ];
   },
 };

@@ -11,6 +11,11 @@ interface SummaryPaymentInfo {
   upiId?: string;
 }
 
+/** Same reasoning as /pay/[id]: an unguessable token is only unguessable until it's indexed. */
+export const metadata = {
+  robots: { index: false, follow: false, nocache: true },
+};
+
 export default async function SharedInvoicePage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   const supabase = await createClient();

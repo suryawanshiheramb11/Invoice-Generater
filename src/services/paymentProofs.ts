@@ -31,6 +31,11 @@ export interface PaymentProof {
 
 const MAX_PROOF_BYTES = 10 * 1024 * 1024; // 10MB
 const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/webp", "application/pdf"];
+// The uploader's filename decides the extension, which lands inside the storage path.
+// Anything with a separator in it would nest the object outside "<invoiceId>/" — which
+// submit_payment_proof now rejects outright (migration 0011), so keep the client from
+// generating a path the server will refuse.
+const SAFE_EXTENSION = /^[A-Za-z0-9]{1,10}$/;
 
 function mapProof(row: {
   id: string;
@@ -124,7 +129,8 @@ export async function submitPaymentProof(params: {
   }
 
   const supabase = createClient();
-  const extension = file.name.split(".").pop() || "jpg";
+  const rawExtension = file.name.split(".").pop() ?? "";
+  const extension = SAFE_EXTENSION.test(rawExtension) ? rawExtension : "jpg";
   const path = `${invoiceId}/${crypto.randomUUID()}.${extension}`;
 
   const { error: uploadError } = await supabase.storage.from("payment-proofs").upload(path, file, {

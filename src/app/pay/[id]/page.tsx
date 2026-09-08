@@ -6,7 +6,17 @@ import { UpiPaySection } from "@/components/invoice/UpiPaySection";
 import { formatMoney } from "@/lib/money";
 import { formatDate } from "@/lib/dates";
 import { remainingBalance } from "@/lib/paymentBalance";
+import { safeExternalUrl } from "@/lib/urls";
 import type { CurrencyCode, InvoiceStatus } from "@/types/invoice";
+
+/**
+ * This page shows an amount owed and (when the owner opted in) their bank/UPI details, all
+ * behind nothing but an unguessable id. Keep it out of search indexes: a single indexed
+ * /pay/<uuid> turns "unguessable" into "first result".
+ */
+export const metadata = {
+  robots: { index: false, follow: false, nocache: true },
+};
 
 interface PaymentInfo {
   bankName?: string;
@@ -56,6 +66,8 @@ export default async function PayInvoicePage({ params }: { params: Promise<{ id:
         paymentInfo.paymentLink
     );
 
+  // Owner-supplied, so never trusted as an href without scheme filtering — see safeExternalUrl.
+  const paymentLinkUrl = safeExternalUrl(paymentInfo.paymentLink);
   const paidAmount = result.paid_amount ?? 0;
   const remaining = remainingBalance(result.status as InvoiceStatus, result.total, paidAmount);
   const showUpi = result.show_payment_info && Boolean(paymentInfo.upiId) && currency === "INR" && remaining > 0;
@@ -120,11 +132,11 @@ export default async function PayInvoicePage({ params }: { params: Promise<{ id:
             {paymentInfo.upiId && <p>UPI ID: {paymentInfo.upiId}</p>}
             {paymentInfo.paypalEmail && <p>PayPal: {paymentInfo.paypalEmail}</p>}
           </div>
-          {paymentInfo.paymentLink && (
+          {paymentLinkUrl && (
             <a
-              href={paymentInfo.paymentLink}
+              href={paymentLinkUrl}
               target="_blank"
-              rel="noopener noreferrer"
+              rel="noopener noreferrer nofollow"
               className="mt-3 inline-flex items-center gap-1.5 text-sm font-bold text-accent hover:text-accent-hover"
             >
               Open payment link <ExternalLink className="h-3.5 w-3.5" />

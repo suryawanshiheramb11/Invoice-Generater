@@ -49,7 +49,7 @@ export function CustomerSection({ customer, shipping, onCustomerChange, onShippi
         <Input value={customer.company} onChange={(e) => onCustomerChange({ company: e.target.value })} />
       </Field>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Field label="Email">
           <Input type="email" value={customer.email} onChange={(e) => onCustomerChange({ email: e.target.value })} />
         </Field>
@@ -65,7 +65,7 @@ export function CustomerSection({ customer, shipping, onCustomerChange, onShippi
         />
       </Field>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Field label="City">
           <Input value={customer.address.city} onChange={(e) => onCustomerChange({ address: { ...customer.address, city: e.target.value } })} />
         </Field>
@@ -101,7 +101,7 @@ export function CustomerSection({ customer, shipping, onCustomerChange, onShippi
               value={shipping.address.addressLine}
               onChange={(e) => onShippingChange({ address: { ...shipping.address, addressLine: e.target.value } })}
             />
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Input
                 placeholder="City"
                 value={shipping.address.city}

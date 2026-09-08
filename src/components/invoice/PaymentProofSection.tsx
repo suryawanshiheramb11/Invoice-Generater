@@ -51,7 +51,14 @@ const AI_STATUS_TONE: Record<PaymentProof["aiStatus"], "default" | "success" | "
   not_applicable: "default",
 };
 
-export function PaymentProofSection({ invoice }: { invoice: Invoice }) {
+export function PaymentProofSection({
+  invoice,
+  onStatusChange,
+}: {
+  invoice: Invoice;
+  /** Lets the editor react to a status change here — notably to lock a just-sent invoice. */
+  onStatusChange?: (status: InvoiceStatus) => void;
+}) {
   const { show } = useToast();
   const [proofs, setProofs] = useState<PaymentProof[]>([]);
   const [loading, setLoading] = useState(!!invoice.id);
@@ -66,6 +73,14 @@ export function PaymentProofSection({ invoice }: { invoice: Invoice }) {
     setSyncedStatusFor(invoice.status);
     setStatus(invoice.status);
   }
+
+  // Push status changes back up to the editor. Every path in here routes through setStatus,
+  // so watching it once covers the dropdown, approve/reject, delete, and manual payments
+  // without threading the callback through each handler. (The caller must pass a stable
+  // callback — an inline arrow would re-fire this on every render.)
+  useEffect(() => {
+    onStatusChange?.(status);
+  }, [status, onStatusChange]);
 
   function refresh() {
     if (!invoice.id) return;

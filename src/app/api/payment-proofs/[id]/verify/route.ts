@@ -8,24 +8,32 @@ export const runtime = "nodejs";
 
 /**
  * Runs the local-OCR check (step 1 of the two-step verification) against one payment
- * proof and stores the verdict. Called two ways, both already-authorized elsewhere:
+ * proof and stores the verdict. Called two ways:
  *  - by the /pay/[id] (or /share/[token]) page right after a client submits proof (passes
  *    the invoice id — the same credential that already let them submit the proof itself)
  *  - by the owner's dashboard, to re-run the check on demand (uses their session)
- * Either way this only ever writes an advisory ai_status/ai_notes onto a proof row —
- * it never changes the invoice's paid/unpaid status, so getting the auth check slightly
- * wrong here has no security consequence beyond "the wrong person saw an OCR result."
+ *
+ * OCR here is genuinely expensive — tesseract, on a file up to 10MB, inside a serverless
+ * function that bills by the second. The anonymous path therefore runs at most once per
+ * proof (the single fire-and-forget call that legitimately follows a submission); every
+ * re-run after that requires the invoice owner's session. Without that, anyone holding a
+ * proof id and its invoice id — which is exactly what a payer's own browser receives —
+ * could sit in a loop burning CPU indefinitely.
  */
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id: proofId } = await params;
   const body = await request.json().catch(() => ({}));
   const invoiceId = typeof body.invoiceId === "string" ? body.invoiceId : null;
 
+  if (!rateLimitOk(clientKey(request))) {
+    return NextResponse.json({ error: "Too many verification requests. Try again shortly." }, { status: 429 });
+  }
+
   const admin = createAdminClient();
 
   const { data: proof, error: proofError } = await admin
     .from("invoice_payment_proofs")
-    .select("id, invoice_id, storage_path")
+    .select("id, invoice_id, storage_path, ai_checked_at")
     .eq("id", proofId)
     .maybeSingle();
   if (proofError || !proof) {
@@ -35,7 +43,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "This proof has no attached file to verify." }, { status: 400 });
   }
 
-  const authorized = invoiceId ? invoiceId === proof.invoice_id : await sessionOwnsInvoice(proof.invoice_id);
+  // The file is fetched below with the service-role key, which bypasses storage RLS
+  // entirely — so the path has to be re-checked here rather than trusted from the row.
+  // submit_payment_proof enforces this prefix too (migration 0011); this covers rows
+  // written before that landed, and any future caller that reaches the table another way.
+  if (!proof.storage_path.startsWith(`${proof.invoice_id}/`)) {
+    return NextResponse.json({ error: "Not authorized." }, { status: 403 });
+  }
+
+  const isOwner = await sessionOwnsInvoice(proof.invoice_id);
+  // A matching invoice id is the anonymous payer's credential, but it only buys the first
+  // check on a given proof. After that, re-running is an owner-only action.
+  const authorized = isOwner || (invoiceId === proof.invoice_id && !proof.ai_checked_at);
   if (!authorized) {
     return NextResponse.json({ error: "Not authorized." }, { status: 403 });
   }
@@ -76,6 +95,41 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   return NextResponse.json({ status: result.status, notes: result.notes, confidence: result.confidence });
+}
+
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const RATE_LIMIT_MAX = 5;
+const hits = new Map<string, number[]>();
+
+/**
+ * Per-instance throttle. A serverless deployment runs many instances, so this is a ceiling
+ * on how fast one caller can go *per instance*, not a global quota — the real bound on
+ * abuse is the once-per-proof rule above. It's here to blunt the trivial single-client
+ * hammering case, and it's deliberately dependency-free; a distributed limiter (Upstash,
+ * Vercel KV) would be the upgrade if this endpoint ever gets genuinely attacked.
+ */
+function rateLimitOk(key: string): boolean {
+  const now = Date.now();
+  const recent = (hits.get(key) ?? []).filter((t) => now - t < RATE_LIMIT_WINDOW_MS);
+  if (recent.length >= RATE_LIMIT_MAX) {
+    hits.set(key, recent);
+    return false;
+  }
+  recent.push(now);
+  hits.set(key, recent);
+
+  // Bound the map so a stream of distinct keys can't grow it without limit.
+  if (hits.size > 5000) {
+    for (const [k, times] of hits) {
+      if (times.every((t) => now - t >= RATE_LIMIT_WINDOW_MS)) hits.delete(k);
+    }
+  }
+  return true;
+}
+
+function clientKey(request: Request): string {
+  const forwarded = request.headers.get("x-forwarded-for");
+  return forwarded?.split(",")[0]?.trim() || request.headers.get("x-real-ip") || "unknown";
 }
 
 async function sessionOwnsInvoice(invoiceId: string): Promise<boolean> {

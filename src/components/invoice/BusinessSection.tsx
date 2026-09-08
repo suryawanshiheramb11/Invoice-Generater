@@ -68,7 +68,7 @@ export function BusinessSection({ business, onChange }: Props) {
           <Button type="button" variant="outline" size="sm" loading={uploading} onClick={() => fileRef.current?.click()}>
             <Upload className="h-3.5 w-3.5" /> Upload logo
           </Button>
-          <p className="mt-1 text-xs text-muted">PNG, JPEG, WebP, or SVG. Max 2MB.</p>
+          <p className="mt-1 text-xs text-muted">PNG, JPEG, or WebP. Max 2MB.</p>
         </div>
       </div>
 
@@ -84,7 +84,7 @@ export function BusinessSection({ business, onChange }: Props) {
         />
       </Field>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Field label="City">
           <Input value={business.address.city} onChange={(e) => onChange({ address: { ...business.address, city: e.target.value } })} />
         </Field>
@@ -99,7 +99,7 @@ export function BusinessSection({ business, onChange }: Props) {
         </Field>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Field label="Email">
           <Input type="email" value={business.email} onChange={(e) => onChange({ email: e.target.value })} />
         </Field>
@@ -112,7 +112,7 @@ export function BusinessSection({ business, onChange }: Props) {
         <Input value={business.website} onChange={(e) => onChange({ website: e.target.value })} placeholder="www.example.com" />
       </Field>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Field label="Tax / GST / VAT Number">
           <Input value={business.taxNumber} onChange={(e) => onChange({ taxNumber: e.target.value })} />
         </Field>

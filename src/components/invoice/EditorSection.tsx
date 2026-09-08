@@ -9,10 +9,16 @@ interface Props {
   title: string;
   subtitle?: string;
   defaultOpen?: boolean;
+  /**
+   * Makes every field inside read-only (used once an invoice has been sent). Applied as a
+   * <fieldset disabled> around the body rather than to the section itself, so the
+   * expand/collapse header keeps working — a locked invoice still needs to be readable.
+   */
+  disabled?: boolean;
   children: ReactNode;
 }
 
-export function EditorSection({ title, subtitle, defaultOpen = true, children }: Props) {
+export function EditorSection({ title, subtitle, defaultOpen = true, disabled = false, children }: Props) {
   const [open, setOpen] = useState(defaultOpen);
 
   return (
@@ -29,7 +35,19 @@ export function EditorSection({ title, subtitle, defaultOpen = true, children }:
         </div>
         <ChevronDown className={cn("h-4 w-4 shrink-0 text-muted transition-transform", open && "rotate-180")} />
       </button>
-      {open && <div className="border-t border-border px-5 py-4">{children}</div>}
+      {open && (
+        <div className="border-t border-border px-5 py-4">
+          {disabled ? (
+            // min-w-0 because a fieldset defaults to min-width:min-content, which would stop
+            // the grid column from shrinking on narrow screens.
+            <fieldset disabled className="m-0 min-w-0 border-0 p-0 opacity-60">
+              {children}
+            </fieldset>
+          ) : (
+            children
+          )}
+        </div>
+      )}
     </section>
   );
 }

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Download, Loader2, Printer, Save, Share2, Copy } from "lucide-react";
-import type { Invoice, TemplateId } from "@/types/invoice";
+import type { Invoice, InvoiceStatus, TemplateId } from "@/types/invoice";
 import { EditorSection } from "@/components/invoice/EditorSection";
 import { BusinessSection } from "@/components/invoice/BusinessSection";
 import { CustomerSection } from "@/components/invoice/CustomerSection";
@@ -57,13 +57,50 @@ export function InvoiceEditor({ invoiceId, initialInvoice }: { invoiceId?: strin
   // which change on every save and would otherwise make the object look "edited" again
   // as soon as setInvoice(saved) runs, re-triggering the autosave effect in a loop).
   const lastSavedSignature = useRef<string | null>(initialInvoice ? invoiceSignature(initialInvoice) : null);
+  // Guards the "build a blank invoice" effect below so it can only ever run once.
+  const initializedInvoice = useRef(Boolean(initialInvoice));
+  // Whether a save is currently in flight, so two overlapping upserts can't race.
+  const saveInFlight = useRef(false);
 
-  // Initialize a new invoice. Guests resume their local draft (if any); signed-in users
-  // always start fresh here (their existing invoices live in the dashboard) — otherwise a
-  // stale guest draft from before they logged in could reload with an invoice number that's
-  // already saved under their account and collide on save.
+  /**
+   * A saved invoice stops being editable the moment it leaves draft — once it's been sent,
+   * the client is holding a copy, and silently editing the record behind that copy is how
+   * an invoice and the PDF someone actually received drift apart. Duplicate is the way to
+   * make changes: it opens a fresh draft with a new number.
+   *
+   * This is a workflow guard, not a security boundary — it's the owner's own row, and RLS
+   * lets them update it. It stops the accident, not a determined owner with an API client.
+   */
+  const locked = Boolean(invoiceId) && Boolean(invoice) && invoice!.status !== "draft";
+
+  // Drives the mobile-only action bar: on a phone the preview sits below the whole editor,
+  // so once someone has scrolled down to look at the invoice itself, the toolbar with
+  // Share/Download is far off-screen above them.
+  const previewRef = useRef<HTMLDivElement>(null);
+  const [previewInView, setPreviewInView] = useState(false);
+  const editorReady = Boolean(invoice) && !userLoading;
+  useEffect(() => {
+    const node = previewRef.current;
+    if (!node || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(([entry]) => setPreviewInView(entry.isIntersecting), {
+      threshold: 0.04,
+    });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [editorReady]);
+
+  // Initialize a new invoice, exactly once. Guests resume their local draft if they have one.
+  //
+  // The once-only guard is load-bearing, not an optimization. `user` is a fresh object on
+  // every Supabase auth event — and the client emits those on token refresh and when the
+  // tab regains focus, not just at sign-in. This effect used to re-run on each of them and
+  // call setInvoice(createEmptyInvoice(...)), wiping out everything typed so far. That's
+  // the "I was filling it in and my data vanished" bug: nothing had reloaded, an
+  // invisible background token refresh had reset the form.
   useEffect(() => {
     if (invoiceId || initialInvoice || userLoading) return;
+    if (initializedInvoice.current) return;
+    initializedInvoice.current = true;
     let cancelled = false;
     (async () => {
       if (!user) {
@@ -84,6 +121,22 @@ export function InvoiceEditor({ invoiceId, initialInvoice }: { invoiceId?: strin
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [invoiceId, userLoading, user]);
 
+  // A guest who signs in mid-draft keeps everything they typed; only the invoice number is
+  // reissued, because the guest placeholder ("INV-2026-0001") may already be taken on the
+  // account they just signed into and would collide on the unique (user_id, invoice_number).
+  const previousUserId = useRef<string | null>(null);
+  useEffect(() => {
+    if (userLoading) return;
+    const signedInNow = user?.id ?? null;
+    const wasSignedOut = previousUserId.current === null;
+    previousUserId.current = signedInNow;
+    if (!signedInNow || !wasSignedOut || invoiceId || !invoice || invoice.id) return;
+    getNextInvoiceNumber()
+      .then((number) => setInvoice((prev) => (prev && !prev.id ? { ...prev, invoiceNumber: number } : prev)))
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, userLoading]);
+
   // Pre-fill saved business profile once, for logged-in users starting a new invoice.
   useEffect(() => {
     if (!user || invoiceId || initializedProfile.current || !invoice) return;
@@ -103,6 +156,10 @@ export function InvoiceEditor({ invoiceId, initialInvoice }: { invoiceId?: strin
     setInvoice((prev) => (prev ? { ...prev, ...patch } : prev));
   }, []);
 
+  // Stable identity so PaymentProofSection's status-watching effect only fires on a real
+  // status change, not on every render of this component.
+  const handleStatusChange = useCallback((status: InvoiceStatus) => update({ status }), [update]);
+
   // Guest autosave to localStorage.
   useDebouncedEffect(
     () => {
@@ -118,12 +175,12 @@ export function InvoiceEditor({ invoiceId, initialInvoice }: { invoiceId?: strin
   // back a fresh `updatedAt` from the DB, which must not itself look like a new edit).
   useDebouncedEffect(
     () => {
-      if (!invoice || !user) return;
+      if (!invoice || !user || locked) return;
       if (invoiceSignature(invoice) === lastSavedSignature.current) return;
       if (validateInvoice(invoice).length > 0) return;
       void persist(true);
     },
-    [invoice, user],
+    [invoice, user, locked],
     2000
   );
 
@@ -133,16 +190,44 @@ export function InvoiceEditor({ invoiceId, initialInvoice }: { invoiceId?: strin
       show("Create a free account to save invoices permanently.", "info");
       return;
     }
+    if (locked) {
+      if (!silent) show("This invoice was already sent — duplicate it to make changes.", "info");
+      return;
+    }
     const errors = validateInvoice(invoice);
     if (errors.length > 0) {
       if (!silent) show(errors[0], "error");
       return;
     }
+    // Two upserts in flight at once (manual Save landing on top of an autosave, say) would
+    // race to decide which version wins.
+    if (saveInFlight.current) return;
+    saveInFlight.current = true;
+
+    // What we're actually sending. Typing continues during the round trip, so this is not
+    // necessarily what's on screen by the time the save resolves.
+    const snapshot = invoice;
+    const snapshotSignature = invoiceSignature(snapshot);
     setSaving(true);
     try {
-      const saved = await saveInvoice(invoice);
+      const saved = await saveInvoice(snapshot);
       lastSavedSignature.current = invoiceSignature(saved);
-      setInvoice(saved);
+      setInvoice((current) => {
+        if (!current || invoiceSignature(current) === snapshotSignature) return saved;
+        // The invoice changed while the save was in flight. Blindly assigning the server's
+        // response here would throw away every keystroke made during the round trip — the
+        // second half of the "my data disappeared" bug, and the nastier half, because it
+        // also marked that lost text as saved. Keep what's on screen; take only the fields
+        // the server owns. The autosave effect then fires again for the newer content,
+        // since it no longer matches lastSavedSignature.
+        return {
+          ...current,
+          id: saved.id,
+          userId: saved.userId,
+          createdAt: saved.createdAt,
+          updatedAt: saved.updatedAt,
+        };
+      });
       setLastSavedAt(new Date());
       clearDraft();
       if (!silent) show("Invoice saved.", "success");
@@ -150,6 +235,7 @@ export function InvoiceEditor({ invoiceId, initialInvoice }: { invoiceId?: strin
     } catch (err) {
       if (!silent) show(friendlyErrorMessage(err), "error");
     } finally {
+      saveInFlight.current = false;
       setSaving(false);
     }
   }
@@ -242,13 +328,15 @@ export function InvoiceEditor({ invoiceId, initialInvoice }: { invoiceId?: strin
             {invoiceId ? "Edit invoice" : "New invoice"}
           </h1>
           <p className="mt-1.5 text-sm font-medium text-muted">
-            {user
-              ? saving
-                ? "Saving…"
-                : lastSavedAt
-                  ? `Saved at ${lastSavedAt.toLocaleTimeString()}`
-                  : "Changes autosave once required fields are filled."
-              : "Editing as guest — sign in to save permanently."}
+            {locked
+              ? "Sent — locked to match what your client received."
+              : user
+                ? saving
+                  ? "Saving…"
+                  : lastSavedAt
+                    ? `Saved at ${lastSavedAt.toLocaleTimeString()}`
+                    : "Changes autosave once required fields are filled."
+                : "Editing as guest — sign in to save permanently."}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -266,7 +354,7 @@ export function InvoiceEditor({ invoiceId, initialInvoice }: { invoiceId?: strin
           <Button variant="outline" size="sm" onClick={handleDownloadPdf} loading={downloading}>
             <Download className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Download PDF</span>
           </Button>
-          {user ? (
+          {locked ? null : user ? (
             <Button size="sm" onClick={() => persist(false)} loading={saving}>
               <Save className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Save Invoice</span>
             </Button>
@@ -282,12 +370,27 @@ export function InvoiceEditor({ invoiceId, initialInvoice }: { invoiceId?: strin
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] xl:grid-cols-[minmax(0,480px)_minmax(0,1fr)]">
         {/* Editor */}
-        <div className="no-print space-y-4">
-          <EditorSection title="Your Business" subtitle="Appears on every invoice you create.">
+        <div className="no-print min-w-0 space-y-4">
+          {locked && (
+            <div className="rounded-[22px] border-[1.6px] border-warning bg-warning-soft px-5 py-4">
+              <p className="text-sm font-bold text-foreground">This invoice has been sent</p>
+              <p className="mt-1 text-xs text-muted">
+                Its details are locked so they keep matching the copy your client received. Payment status and proof
+                below can still be updated. To change anything else, use{" "}
+                <span className="font-bold text-foreground">Duplicate</span> — it opens an editable copy with a new
+                invoice number.
+              </p>
+              <Button variant="outline" size="sm" className="mt-3" onClick={handleDuplicate}>
+                <Copy className="h-3.5 w-3.5" /> Duplicate to edit
+              </Button>
+            </div>
+          )}
+
+          <EditorSection title="Your Business" subtitle="Appears on every invoice you create." disabled={locked}>
             <BusinessSection business={invoice.business} onChange={(patch) => update({ business: { ...invoice.business, ...patch } })} />
           </EditorSection>
 
-          <EditorSection title="Bill To">
+          <EditorSection title="Bill To" disabled={locked}>
             <CustomerSection
               customer={invoice.customer}
               shipping={invoice.shipping}
@@ -296,7 +399,7 @@ export function InvoiceEditor({ invoiceId, initialInvoice }: { invoiceId?: strin
             />
           </EditorSection>
 
-          <EditorSection title="Invoice Information">
+          <EditorSection title="Invoice Information" disabled={locked}>
             <InvoiceInfoSection
               invoiceNumber={invoice.invoiceNumber}
               invoiceDate={invoice.invoiceDate}
@@ -307,7 +410,7 @@ export function InvoiceEditor({ invoiceId, initialInvoice }: { invoiceId?: strin
             />
           </EditorSection>
 
-          <EditorSection title="Invoice Items">
+          <EditorSection title="Invoice Items" disabled={locked}>
             <ItemsSection
               items={invoice.items}
               currency={invoice.currency}
@@ -318,11 +421,11 @@ export function InvoiceEditor({ invoiceId, initialInvoice }: { invoiceId?: strin
             />
           </EditorSection>
 
-          <EditorSection title="Taxes & Totals">
+          <EditorSection title="Taxes & Totals" disabled={locked}>
             <TotalsSection invoice={invoice} onChange={update} />
           </EditorSection>
 
-          <EditorSection title="Notes & Terms" defaultOpen={false}>
+          <EditorSection title="Notes & Terms" defaultOpen={false} disabled={locked}>
             <NotesSection
               notes={invoice.notes}
               terms={invoice.terms}
@@ -331,11 +434,11 @@ export function InvoiceEditor({ invoiceId, initialInvoice }: { invoiceId?: strin
             />
           </EditorSection>
 
-          <EditorSection title="Payment Information" defaultOpen={false}>
+          <EditorSection title="Payment Information" defaultOpen={false} disabled={locked}>
             <PaymentInfoSection paymentInfo={invoice.paymentInfo} onChange={(patch) => update({ paymentInfo: { ...invoice.paymentInfo, ...patch } })} />
           </EditorSection>
 
-          <EditorSection title="Template & Customization" defaultOpen={false}>
+          <EditorSection title="Template & Customization" defaultOpen={false} disabled={locked}>
             <CustomizationSection
               template={invoice.template}
               customization={invoice.customization}
@@ -352,18 +455,35 @@ export function InvoiceEditor({ invoiceId, initialInvoice }: { invoiceId?: strin
 
           {user && invoiceId && (
             <EditorSection title="Payment Status" subtitle="Track payment proof your client submits." defaultOpen={false}>
-              <PaymentProofSection invoice={invoice} />
+              <PaymentProofSection invoice={invoice} onStatusChange={handleStatusChange} />
             </EditorSection>
           )}
         </div>
 
         {/* Live preview */}
-        <div className="lg:sticky lg:top-6 lg:self-start">
+        <div ref={previewRef} className="min-w-0 lg:sticky lg:top-6 lg:self-start">
           <div className="overflow-x-auto rounded-[22px] bg-black/[0.02] p-4">
             <InvoicePreview invoice={invoice} />
           </div>
+          {/* Room for the fixed mobile bar below, so it never covers the end of the invoice. */}
+          <div aria-hidden className="h-20 lg:hidden" />
         </div>
       </div>
+
+      {/* Mobile-only: once the invoice preview is on screen, put Share/Download within
+          thumb reach instead of back up at the top of the page. */}
+      {previewInView && (
+        <div className="no-print fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface/95 backdrop-blur lg:hidden">
+          <div className="mx-auto flex max-w-md gap-2 px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3">
+            <Button className="flex-1" onClick={handleSharePdf} loading={sharing}>
+              <Share2 className="h-4 w-4" /> Share PDF
+            </Button>
+            <Button variant="outline" className="flex-1" onClick={handleDownloadPdf} loading={downloading}>
+              <Download className="h-4 w-4" /> Download
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

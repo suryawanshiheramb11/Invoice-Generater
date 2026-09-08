@@ -203,7 +203,6 @@ export interface Database {
         Returns: {
           invoice_number: string;
           business_name: string | null;
-          customer_name: string | null;
           status: string;
           total: number;
           currency: string;

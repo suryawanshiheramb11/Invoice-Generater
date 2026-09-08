@@ -67,8 +67,12 @@ export function ItemsSection({ items, currency, taxMode, showTax, showDiscount, 
             />
           </div>
 
-          <div className="mt-3 flex flex-wrap items-end gap-2">
-            <div className="w-20">
+          {/* Phones get a tidy 2-up grid; from sm the original single-row flex layout takes
+              over. As a flex-wrap at every width, these fixed-width fields wrapped into
+              ragged rows on a narrow screen and the ml-auto Amount landed wherever there
+              happened to be space. */}
+          <div className="mt-3 grid grid-cols-2 items-end gap-2 sm:flex sm:flex-wrap">
+            <div className="sm:w-20">
               <span className={fieldLabel}>Qty</span>
               <Input
                 type="number"
@@ -80,7 +84,7 @@ export function ItemsSection({ items, currency, taxMode, showTax, showDiscount, 
                 className="bg-surface px-2 text-center"
               />
             </div>
-            <div className="min-w-[110px] flex-1">
+            <div className="min-w-0 sm:min-w-[110px] sm:flex-1">
               <span className={fieldLabel}>Rate</span>
               <Input
                 type="number"
@@ -93,7 +97,7 @@ export function ItemsSection({ items, currency, taxMode, showTax, showDiscount, 
               />
             </div>
             {showDiscount && (
-              <div className="w-[132px]">
+              <div className="col-span-2 sm:col-auto sm:w-[132px]">
                 <span className={fieldLabel}>Discount</span>
                 <div className="flex gap-1">
                   <Input
@@ -118,7 +122,7 @@ export function ItemsSection({ items, currency, taxMode, showTax, showDiscount, 
               </div>
             )}
             {showTax && taxMode === "simple" && (
-              <div className="w-20">
+              <div className="sm:w-20">
                 <span className={fieldLabel}>Tax %</span>
                 <Input
                   type="number"
@@ -131,8 +135,8 @@ export function ItemsSection({ items, currency, taxMode, showTax, showDiscount, 
                 />
               </div>
             )}
-            <div className="ml-auto shrink-0 text-right">
-              <span className={cn(fieldLabel, "text-right")}>Amount</span>
+            <div className="col-span-2 flex items-baseline justify-between border-t border-border pt-2 sm:col-auto sm:ml-auto sm:block sm:shrink-0 sm:border-0 sm:pt-0 sm:text-right">
+              <span className={cn(fieldLabel, "mb-0 sm:mb-1 sm:text-right")}>Amount</span>
               <span className="font-display text-base font-extrabold text-accent">
                 {formatMoney(itemFinalAmount(item, currency, taxMode), currency)}
               </span>

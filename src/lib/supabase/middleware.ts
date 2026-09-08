@@ -1,7 +1,12 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PROTECTED_PREFIXES = ["/dashboard", "/customers", "/settings"];
+const PROTECTED_PREFIXES = ["/dashboard", "/customers", "/settings", "/invoice/"];
+
+// /invoice/new is the guest entry point — an unsigned-in visitor can build an invoice there
+// and it lives in localStorage until they sign up (see lib/guestStorage). Every other
+// /invoice/* path loads a saved record and needs a session.
+const PUBLIC_EXCEPTIONS = ["/invoice/new"];
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -38,7 +43,10 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const isProtected = PROTECTED_PREFIXES.some((p) => request.nextUrl.pathname.startsWith(p));
+  const pathname = request.nextUrl.pathname;
+  const isProtected =
+    PROTECTED_PREFIXES.some((p) => pathname.startsWith(p)) &&
+    !PUBLIC_EXCEPTIONS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 
   if (isProtected && !user) {
     const redirectUrl = new URL("/login", request.url);
