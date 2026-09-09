@@ -17,6 +17,7 @@ import { CustomizationSection } from "@/components/invoice/CustomizationSection"
 import { PdfHistorySection } from "@/components/invoice/PdfHistorySection";
 import { PaymentProofSection } from "@/components/invoice/PaymentProofSection";
 import { InvoicePreview } from "@/components/invoice/InvoicePreview";
+import { InvoiceScaleFrame } from "@/components/invoice/InvoiceScaleFrame";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
 import { useUser } from "@/hooks/useUser";
@@ -476,8 +477,10 @@ export function InvoiceEditor({ invoiceId, initialInvoice }: { invoiceId?: strin
 
         {/* Live preview */}
         <div ref={previewRef} className="min-w-0 lg:sticky lg:top-6 lg:self-start">
-          <div className="overflow-x-auto rounded-[22px] bg-black/[0.02] p-4">
-            <InvoicePreview invoice={invoice} />
+          <div className="rounded-[22px] bg-black/[0.02] p-4">
+            <InvoiceScaleFrame>
+              <InvoicePreview invoice={invoice} />
+            </InvoiceScaleFrame>
           </div>
           {/* Room for the fixed mobile bar below, so it never covers the end of the invoice. */}
           <div aria-hidden className="h-20 lg:hidden" />

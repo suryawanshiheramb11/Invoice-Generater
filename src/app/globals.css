@@ -100,6 +100,17 @@ body {
   }
 }
 
+/* Visually scales the fixed-width A4 preview to fit narrow containers
+   instead of letting it reflow (see InvoiceScaleFrame). */
+.invoice-scale-outer {
+  overflow: hidden;
+}
+
+.invoice-scale-inner {
+  transform: scale(var(--invoice-scale, 1));
+  transform-origin: top left;
+}
+
 /* ------------------------------------------------------------------ */
 /* Print stylesheet: only the invoice surface is visible when printing */
 /* ------------------------------------------------------------------ */
@@ -137,6 +148,19 @@ body {
 
   .no-print {
     display: none !important;
+  }
+
+  /* A transformed ancestor becomes the containing block for
+     #invoice-print-area's position:absolute, which would break its
+     `inset: 0` relative-to-page positioning above. Undo the on-screen
+     mobile scaling so print always uses the untransformed full-size page. */
+  .invoice-scale-outer {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  .invoice-scale-inner {
+    transform: none !important;
   }
 
   .invoice-page {
