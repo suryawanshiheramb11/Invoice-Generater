@@ -44,6 +44,7 @@ export default async function SharedInvoicePage({ params }: { params: Promise<{ 
   let currency: CurrencyCode = "INR";
   let showUpi = false;
   let upiId = "";
+  let hasPendingClaim = false;
   if (result.invoice_id) {
     const { data: summaryRows } = await supabase.rpc("get_public_invoice_summary", { p_invoice_id: result.invoice_id });
     const summary = summaryRows?.[0];
@@ -52,8 +53,11 @@ export default async function SharedInvoicePage({ params }: { params: Promise<{ 
       total = summary.total;
       paidAmount = summary.paid_amount ?? 0;
       remaining = remainingBalance(summary.status as InvoiceStatus, summary.total, paidAmount);
+      hasPendingClaim = Boolean(summary.has_pending_claim);
       const paymentInfo = (summary.payment_info ?? {}) as SummaryPaymentInfo;
-      showUpi = Boolean(summary.show_payment_info && paymentInfo.upiId && currency === "INR" && remaining > 0);
+      // Same reasoning as /pay/[id]: a claim awaiting review means nothing here is
+      // actionable until the owner resolves it.
+      showUpi = Boolean(summary.show_payment_info && paymentInfo.upiId && currency === "INR" && remaining > 0 && !hasPendingClaim);
       upiId = paymentInfo.upiId ?? "";
     }
   }
@@ -112,6 +116,7 @@ export default async function SharedInvoicePage({ params }: { params: Promise<{ 
           initialStatus={result.invoice_status ?? "sent"}
           remainingBalance={remaining}
           currency={currency}
+          initialHasPendingClaim={hasPendingClaim}
         />
       )}
 

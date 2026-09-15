@@ -70,7 +70,11 @@ export default async function PayInvoicePage({ params }: { params: Promise<{ id:
   const paymentLinkUrl = safeExternalUrl(paymentInfo.paymentLink);
   const paidAmount = result.paid_amount ?? 0;
   const remaining = remainingBalance(result.status as InvoiceStatus, result.total, paidAmount);
-  const showUpi = result.show_payment_info && Boolean(paymentInfo.upiId) && currency === "INR" && remaining > 0;
+  const hasPendingClaim = Boolean(result.has_pending_claim);
+  // A pending claim (submitted, not yet reviewed) means there's nothing left to act on
+  // here until the owner approves or rejects it — showing "how to pay" again next to
+  // PaymentProofForm's own waiting message would just invite a duplicate payment.
+  const showUpi = result.show_payment_info && Boolean(paymentInfo.upiId) && currency === "INR" && remaining > 0 && !hasPendingClaim;
 
   return (
     <div className="mx-auto max-w-sm px-4 py-24 text-center">
@@ -119,7 +123,7 @@ export default async function PayInvoicePage({ params }: { params: Promise<{ id:
         />
       )}
 
-      {hasPaymentDetails && (
+      {hasPaymentDetails && !hasPendingClaim && (
         <div className="mt-4 rounded-2xl border border-border px-5 py-5 text-left">
           <p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted">How to pay</p>
           {result.payment_instructions && <p className="mb-2 text-sm text-muted">{result.payment_instructions}</p>}
@@ -145,7 +149,13 @@ export default async function PayInvoicePage({ params }: { params: Promise<{ id:
         </div>
       )}
 
-      <PaymentProofForm invoiceId={id} initialStatus={result.status} remainingBalance={remaining} currency={currency} />
+      <PaymentProofForm
+        invoiceId={id}
+        initialStatus={result.status}
+        remainingBalance={remaining}
+        currency={currency}
+        initialHasPendingClaim={hasPendingClaim}
+      />
 
       <p className="mt-10 text-xs text-muted">
         Made with{" "}

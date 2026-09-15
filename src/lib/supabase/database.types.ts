@@ -216,6 +216,7 @@ export interface Database {
           payment_instructions: string | null;
           payment_info: Record<string, unknown> | null;
           paid_amount: number;
+          has_pending_claim: boolean;
         }[];
       };
     };
