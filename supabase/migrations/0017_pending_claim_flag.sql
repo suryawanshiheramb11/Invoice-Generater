@@ -14,7 +14,12 @@
 -- has_pending_claim makes "is there an unreviewed claim right now" a server fact instead
 -- of client memory, so the pay pages can render "waiting for approval" and nothing else,
 -- and it survives reloads.
-create or replace function public.get_public_invoice_summary(p_invoice_id uuid)
+--
+-- Postgres won't let CREATE OR REPLACE change a function's OUT-parameter row shape (a new
+-- column here), even additively — needs an explicit drop first, same as migration 0011.
+drop function if exists public.get_public_invoice_summary(uuid);
+
+create function public.get_public_invoice_summary(p_invoice_id uuid)
 returns table(
   invoice_number text,
   business_name text,
