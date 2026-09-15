@@ -108,10 +108,14 @@ export async function deletePaymentProof(id: string, storagePath: string | null)
  * request is best-effort: if it fails (e.g. the client closes the tab immediately),
  * the proof simply sits at ai_status "pending" until the owner re-runs the check
  * from the dashboard, so nothing about payment status depends on it succeeding.
+ *
+ * `file` is optional — cash has nothing to screenshot, so submit_payment_proof
+ * (migration 0016) accepts a null storage path when method is "cash". Every other
+ * method still requires a file, both here and in the RPC itself.
  */
 export async function submitPaymentProof(params: {
   invoiceId: string;
-  file: File;
+  file: File | null;
   method: PaymentMethod;
   note: string;
   partial: boolean;
@@ -119,29 +123,37 @@ export async function submitPaymentProof(params: {
 }): Promise<void> {
   const { invoiceId, file, method, note, partial, amount } = params;
 
-  if (!ALLOWED_TYPES.includes(file.type)) {
-    throw new ServiceError("Proof must be a PNG, JPEG, WebP image, or PDF.");
-  }
-  if (file.size > MAX_PROOF_BYTES) {
-    throw new ServiceError("File must be smaller than 10MB.");
+  if (file) {
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      throw new ServiceError("Proof must be a PNG, JPEG, WebP image, or PDF.");
+    }
+    if (file.size > MAX_PROOF_BYTES) {
+      throw new ServiceError("File must be smaller than 10MB.");
+    }
+  } else if (method !== "cash") {
+    throw new ServiceError("Attach a screenshot or photo of the payment first.");
   }
   if (!(amount > 0)) {
     throw new ServiceError("Enter how much you're paying.");
   }
 
   const supabase = createClient();
-  const rawExtension = file.name.split(".").pop() ?? "";
-  const extension = SAFE_EXTENSION.test(rawExtension) ? rawExtension : "jpg";
-  const path = `${invoiceId}/${crypto.randomUUID()}.${extension}`;
+  let path: string | null = null;
 
-  // PDFs pass through untouched; photos/screenshots get downscaled -- generous enough
-  // (2000px, 1.5MB) that the OCR verification step below still has legible text to read.
-  const uploadFile = file.type === "application/pdf" ? file : await compressImage(file, { maxSizeMB: 1.5, maxWidthOrHeight: 2000 });
+  if (file) {
+    const rawExtension = file.name.split(".").pop() ?? "";
+    const extension = SAFE_EXTENSION.test(rawExtension) ? rawExtension : "jpg";
+    path = `${invoiceId}/${crypto.randomUUID()}.${extension}`;
 
-  const { error: uploadError } = await supabase.storage.from("payment-proofs").upload(path, uploadFile, {
-    contentType: uploadFile.type || file.type,
-  });
-  if (uploadError) throw new ServiceError(uploadError.message);
+    // PDFs pass through untouched; photos/screenshots get downscaled -- generous enough
+    // (2000px, 1.5MB) that the OCR verification step below still has legible text to read.
+    const uploadFile = file.type === "application/pdf" ? file : await compressImage(file, { maxSizeMB: 1.5, maxWidthOrHeight: 2000 });
+
+    const { error: uploadError } = await supabase.storage.from("payment-proofs").upload(path, uploadFile, {
+      contentType: uploadFile.type || file.type,
+    });
+    if (uploadError) throw new ServiceError(uploadError.message);
+  }
 
   const { data: proofId, error } = await supabase.rpc("submit_payment_proof", {
     p_invoice_id: invoiceId,
@@ -152,11 +164,11 @@ export async function submitPaymentProof(params: {
     p_amount: amount,
   });
   if (error) {
-    await supabase.storage.from("payment-proofs").remove([path]);
+    if (path) await supabase.storage.from("payment-proofs").remove([path]);
     throw new ServiceError(error.message);
   }
 
-  if (proofId) {
+  if (proofId && path) {
     fetch(`/api/payment-proofs/${proofId}/verify`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

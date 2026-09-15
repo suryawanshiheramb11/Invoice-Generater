@@ -49,7 +49,7 @@ export function PaymentProofForm({
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!file) {
+    if (!file && method !== "cash") {
       show("Attach a screenshot or photo of the payment first.", "error");
       return;
     }
@@ -133,7 +133,15 @@ export function PaymentProofForm({
               />
             </Field>
 
-            <Field label="Proof of payment" required hint="Screenshot or photo of the transfer, UPI confirmation, or receipt. PNG, JPEG, WebP, or PDF, up to 10MB.">
+            <Field
+              label="Proof of payment"
+              required={method !== "cash"}
+              hint={
+                method === "cash"
+                  ? "Optional for cash — attach a photo of a receipt if you have one."
+                  : "Screenshot or photo of the transfer, UPI confirmation, or receipt. PNG, JPEG, WebP, or PDF, up to 10MB."
+              }
+            >
               <label className="flex h-11 w-full cursor-pointer items-center gap-2 rounded-2xl border-[1.6px] border-dashed border-border-strong bg-surface px-4 text-sm font-medium text-muted hover:border-accent">
                 <UploadCloud className="h-4 w-4 shrink-0" />
                 <span className="truncate">{file ? file.name : "Choose a file…"}</span>
