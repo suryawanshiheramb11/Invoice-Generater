@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { Copy, Loader2, Save, Trash2 } from "lucide-react";
-import type { Invoice } from "@/types/invoice";
+import type { Invoice, InvoiceStatus } from "@/types/invoice";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
 import { friendlyErrorMessage } from "@/lib/errors";
 import { validateInvoice } from "@/lib/validation";
 import { listPdfExports, saveInvoicePdf, deletePdfExport } from "@/services/pdfExports";
 import type { PdfExport, PdfRetention } from "@/services/pdfExports";
+import { updateInvoiceStatus } from "@/services/invoices";
 
 function timeUntil(iso: string): string {
   const ms = new Date(iso).getTime() - Date.now();
@@ -18,7 +19,16 @@ function timeUntil(iso: string): string {
   return `${Math.round(hours / 24)}d left`;
 }
 
-export function PdfHistorySection({ invoice, qrDataUrl }: { invoice: Invoice; qrDataUrl: string | null }) {
+export function PdfHistorySection({
+  invoice,
+  qrDataUrl,
+  onStatusChange,
+}: {
+  invoice: Invoice;
+  qrDataUrl: string | null;
+  /** Lets the editor sync its local status once this hands the invoice to a client — see handleSave. */
+  onStatusChange?: (status: InvoiceStatus) => void;
+}) {
   const { show } = useToast();
   const [exports, setExports] = useState<PdfExport[]>([]);
   const [loading, setLoading] = useState(!!invoice.id);
@@ -51,6 +61,13 @@ export function PdfHistorySection({ invoice, qrDataUrl }: { invoice: Invoice; qr
       const created = await saveInvoicePdf(invoice, qrDataUrl, retention);
       setExports((prev) => [created, ...prev]);
       await navigator.clipboard.writeText(created.shareUrl).catch(() => {});
+      // A share link is a copy in someone else's hands, same as a downloaded PDF — a
+      // draft invoice can't accept payments (submit_payment_proof rejects it), so this is
+      // the last moment to flip it to "sent" before the link is actually usable for that.
+      if (invoice.id && invoice.status === "draft") {
+        await updateInvoiceStatus(invoice.id, "sent").catch(() => {});
+        onStatusChange?.("sent");
+      }
       show("PDF saved and link copied to clipboard.", "success");
     } catch (err) {
       show(friendlyErrorMessage(err), "error");

@@ -28,7 +28,7 @@ import { TEMPLATES } from "@/lib/templates";
 import { saveDraft, loadDraft, clearDraft } from "@/lib/guestStorage";
 import { validateInvoice } from "@/lib/validation";
 import { friendlyErrorMessage } from "@/lib/errors";
-import { getNextInvoiceNumber, prepareDuplicateInvoice, saveInvoice } from "@/services/invoices";
+import { getNextInvoiceNumber, prepareDuplicateInvoice, saveInvoice, updateInvoiceStatus } from "@/services/invoices";
 import { getBusinessProfile } from "@/services/profile";
 import { buildUpiUri } from "@/lib/upi";
 import { calculateInvoiceTotals } from "@/lib/calculations";
@@ -281,6 +281,23 @@ export function InvoiceEditor({ invoiceId, initialInvoice }: { invoiceId?: strin
       : null;
   const qrDataUrl = useQrDataUrl(upiUri);
 
+  // A downloaded or shared PDF is a copy in the client's hands — same trust boundary as
+  // /pay/[id] and /share/[token] rely on. submit_payment_proof rejects any invoice still
+  // in "draft" (it was never sent to anyone, so nothing should be payable yet), so this is
+  // the moment that has to flip it to "sent" — otherwise the invoice never leaves draft
+  // and every payment attempt against it fails with "This invoice is not accepting
+  // payments," even though the client is holding a real copy.
+  async function markSentIfDraft() {
+    if (!invoice?.id || invoice.status !== "draft") return;
+    try {
+      await updateInvoiceStatus(invoice.id, "sent");
+      setInvoice((prev) => (prev && prev.id === invoice.id ? { ...prev, status: "sent" } : prev));
+    } catch {
+      // Best-effort — the PDF itself already downloaded/shared successfully. Worst case
+      // the owner flips status manually from Payment Status below.
+    }
+  }
+
   async function handleDownloadPdf() {
     if (!invoice) return;
     const errors = validateInvoice(invoice);
@@ -292,6 +309,7 @@ export function InvoiceEditor({ invoiceId, initialInvoice }: { invoiceId?: strin
     try {
       const { downloadInvoicePdf } = await import("@/lib/pdf");
       await downloadInvoicePdf(invoice, qrDataUrl);
+      await markSentIfDraft();
     } catch {
       show("PDF generation failed. Please try again.", "error");
     } finally {
@@ -310,6 +328,7 @@ export function InvoiceEditor({ invoiceId, initialInvoice }: { invoiceId?: strin
     try {
       const { shareInvoicePdf } = await import("@/lib/pdf");
       const result = await shareInvoicePdf(invoice, qrDataUrl);
+      await markSentIfDraft();
       if (result === "downloaded") {
         show("Sharing isn't supported in this browser — downloaded the PDF instead.", "info");
       }
@@ -464,7 +483,7 @@ export function InvoiceEditor({ invoiceId, initialInvoice }: { invoiceId?: strin
 
           {user && invoiceId && (
             <EditorSection title="Share PDF" subtitle="Save a snapshot others can view via a link." defaultOpen={false}>
-              <PdfHistorySection invoice={invoice} qrDataUrl={qrDataUrl} />
+              <PdfHistorySection invoice={invoice} qrDataUrl={qrDataUrl} onStatusChange={handleStatusChange} />
             </EditorSection>
           )}
 
