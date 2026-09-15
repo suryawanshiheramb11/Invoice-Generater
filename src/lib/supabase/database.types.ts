@@ -190,7 +190,12 @@ export interface Database {
       submit_payment_proof: {
         Args: {
           p_invoice_id: string;
-          p_storage_path: string;
+          // `supabase gen types` always emits scalar RPC args as their non-null base
+          // type — Postgres function parameters have no NOT NULL concept, so this is a
+          // generator limitation, not a schema fact. Confirmed against the live schema
+          // after migration 0016, which added an explicit null-storage-path path for
+          // cash payments (see submitPaymentProof in services/paymentProofs.ts).
+          p_storage_path: string | null;
           p_method: string;
           p_note?: string;
           p_partial?: boolean;
