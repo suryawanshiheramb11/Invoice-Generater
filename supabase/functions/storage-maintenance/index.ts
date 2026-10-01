@@ -23,7 +23,11 @@
 // storage-maintenance -> Schedule (e.g. daily), with header
 //   Authorization: Bearer <the same CRON_SECRET>
 
+// @ts-ignore - Supabase Edge Functions use Deno, which resolves this jsr URL
 import { createClient } from "jsr:@supabase/supabase-js@2";
+
+// Declare Deno to prevent TS errors in standard Node/Next.js environments
+declare const Deno: any;
 
 Deno.serve(async (req: Request) => {
   const cronSecret = Deno.env.get("CRON_SECRET");

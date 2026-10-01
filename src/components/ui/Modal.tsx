@@ -18,11 +18,15 @@ export function Modal({ open, onClose, title, children, className }: ModalProps)
 
   useEffect(() => {
     if (!open) return;
+    ref.current?.focus();
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
     document.addEventListener("keydown", onKeyDown);
-    ref.current?.focus();
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [open, onClose]);
 
