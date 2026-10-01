@@ -1,6 +1,6 @@
 import type { Invoice } from "@/types/invoice";
 import { createEmptyItem } from "@/lib/calculations";
-import { dueDateFromTerm, todayIso } from "@/lib/dates";
+import { defaultTermsText, dueDateFromTerm, todayIso } from "@/lib/dates";
 
 export function emptyAddress() {
   return { addressLine: "", city: "", state: "", country: "", postalCode: "" };
@@ -8,12 +8,13 @@ export function emptyAddress() {
 
 export function createEmptyInvoice(invoiceNumber: string): Invoice {
   const invoiceDate = todayIso();
+  const dueDate = dueDateFromTerm(invoiceDate, "net_30");
   return {
     id: null,
     userId: null,
     invoiceNumber,
     invoiceDate,
-    dueDate: dueDateFromTerm(invoiceDate, "net_30"),
+    dueDate,
     paymentTerm: "net_30",
     currency: "INR",
     status: "draft",
@@ -54,7 +55,7 @@ export function createEmptyInvoice(invoiceNumber: string): Invoice {
     otherCharges: 0,
 
     notes: "Thank you for your business!",
-    terms: "Payment is due within 30 days of the invoice date.",
+    terms: defaultTermsText("net_30", dueDate),
     paymentInstructions: "Please transfer payment to the bank account listed below.",
     paymentInfo: {
       bankName: "",

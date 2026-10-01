@@ -34,6 +34,13 @@ export function dueDateFromTerm(invoiceDateIso: string, term: PaymentTerm, curre
   return addDaysIso(invoiceDateIso, PAYMENT_TERM_DAYS[term]);
 }
 
+/** The auto-generated Terms & Conditions sentence for a given payment term. */
+export function defaultTermsText(term: PaymentTerm, dueDateIso: string): string {
+  if (term === "due_on_receipt") return "Payment is due immediately upon receipt of this invoice.";
+  if (term === "custom") return `Payment is due by ${formatDate(dueDateIso, "DD MMM YYYY")}.`;
+  return `Payment is due within ${PAYMENT_TERM_DAYS[term]} days of the invoice date.`;
+}
+
 const MONTHS = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",

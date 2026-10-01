@@ -26,6 +26,7 @@ import { useQrDataUrl } from "@/hooks/useQrDataUrl";
 import { createEmptyInvoice } from "@/lib/defaults";
 import { TEMPLATES } from "@/lib/templates";
 import { saveDraft, loadDraft, clearDraft } from "@/lib/guestStorage";
+import { defaultTermsText } from "@/lib/dates";
 import { validateInvoice } from "@/lib/validation";
 import { friendlyErrorMessage } from "@/lib/errors";
 import { getNextInvoiceNumber, prepareDuplicateInvoice, saveInvoice, updateInvoiceStatus } from "@/services/invoices";
@@ -162,6 +163,23 @@ export function InvoiceEditor({ invoiceId, initialInvoice }: { invoiceId?: strin
 
   const update = useCallback((patch: Partial<Invoice>) => {
     setInvoice((prev) => (prev ? { ...prev, ...patch } : prev));
+  }, []);
+
+  // Keeps the Terms & Conditions sentence in sync with Payment Terms / Due Date — but only
+  // while it still reads as the auto-generated text. The moment someone edits it by hand it
+  // stops tracking, so a rewritten sentence never gets silently clobbered by a later term change.
+  const handleInvoiceInfoChange = useCallback((patch: Partial<Invoice>) => {
+    setInvoice((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, ...patch };
+      if (
+        (patch.paymentTerm !== undefined || patch.dueDate !== undefined) &&
+        prev.terms === defaultTermsText(prev.paymentTerm, prev.dueDate)
+      ) {
+        next.terms = defaultTermsText(next.paymentTerm, next.dueDate);
+      }
+      return next;
+    });
   }, []);
 
   // Stable identity so PaymentProofSection's status-watching effect only fires on a real
@@ -440,7 +458,7 @@ export function InvoiceEditor({ invoiceId, initialInvoice }: { invoiceId?: strin
               dueDate={invoice.dueDate}
               paymentTerm={invoice.paymentTerm}
               currency={invoice.currency}
-              onChange={update}
+              onChange={handleInvoiceInfoChange}
             />
           </EditorSection>
 
